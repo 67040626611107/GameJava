@@ -1,0 +1,3 @@
+public enum GameState {
+    EXPLORATION, CASTING, SNAG, REELING, RESULT, INVENTORY
+}
