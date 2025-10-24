@@ -1,0 +1,13 @@
+{
+  "tileSize": 64,
+  "paths": {
+    "grass": "src/assets/Cute_Fantasy/Outdoor decoration/Outdoor_Decor_Animations/Grass_Animations/Flower_Grass_10_Anim.png",
+    "sand": "src/assets/Cute_Fantasy/Tiles/Beach/Beach_Decor_Tiles.png",
+    "water": "src/assets/Cute_Fantasy/Outdoor decoration/Outdoor_Decor_Animations/Water_Decor_Animations/Other_Water_Decor/Branch_Water_Anim.png",
+    "tree1": "src/assets/Cute_Fantasy/Crops/Apple_Tree.png",
+    "rock": "src/assets/Cute_Fantasy/Outdoor decoration/Outdoor_Decor_Animations/Rock_Animations/Cave_Rock_1_Anim.png",
+    "flower": "src/assets/Cute_Fantasy/Outdoor decoration/Flowers.png",
+    "house": "src/assets/Cute_Fantasy/Buildings/Buildings/Houses/Limestone/House_1_Limestone_Base_Black.png",
+    "dock": "src/assets/Cute_Fantasy/Tiles/Bridge/Bridge_Stone_Horizontal.png"
+  }
+}

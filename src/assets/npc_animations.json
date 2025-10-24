@@ -1,0 +1,22 @@
+{
+  "entries": [
+    {
+      "file": "Fisherman_Fin.png",
+      "cell": 64,
+      "sequences": {
+        "IDLE_DOWN":  { "row": 0, "cols": [0], "ms": 400 },
+        "IDLE_LEFT":  { "row": 1, "cols": [0], "ms": 400 },
+        "IDLE_RIGHT": { "row": 2, "cols": [0], "ms": 400 },
+        "IDLE_UP":    { "row": 3, "cols": [0], "ms": 400 },
+
+        "WALK_DOWN":  { "row": 0, "cols": [0,1,2,3,4,5,6,7], "ms": 100 },
+        "WALK_LEFT":  { "row": 1, "cols": [0,1,2,3,4,5,6,7], "ms": 100 },
+        "WALK_RIGHT": { "row": 2, "cols": [0,1,2,3,4,5,6,7], "ms": 100 },
+        "WALK_UP":    { "row": 3, "cols": [0,1,2,3,4,5,6,7], "ms": 100 },
+
+        "FISH_CAST":  { "row": 6, "cols": [0,1,2,3,4,5,6,7,8,9], "ms": 80 },
+        "FISH_REEL":  { "row": 7, "cols": [0,1,2,3,4,5,6,7,8,9], "ms": 80 }
+      }
+    }
+  ]
+}

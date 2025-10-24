@@ -1,114 +1,99 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import sprites.NPCSpriteSheet;
 
 public class Player {
-    // ตำแหน่งสำหรับวาด (คงไว้เป็น int เพื่อความเข้ากันได้)
-    int x, y;
-    int money = 0;
-    private CharacterConfig character;
+    public int x, y;
+    private int speed = 6;
 
-    // ขนาดสปรাইটผู้เล่น
-    private static final int SIZE = 40;
+    public int money = 0;
 
-    // ค่าดั้งเดิม (ยังคงไว้ แต่จะไม่ใช้สำหรับการเดินแบบลื่น)
-    private static final int SPEED = 5;
+    private CharacterConfig config;
 
-    // ตำแหน่ง/ความเร็วแบบลอยตัว เพื่อความลื่นไหล
-    private double px, py;     // ตำแหน่งจริง (double)
-    private double vx, vy;     // ความเร็ว (px/s)
-    private double maxSpeed = 220.0;   // ความเร็วสูงสุด (px/s) — ปรับได้
-    private double accel    = 1200.0;  // ความเร่งเมื่อกดปุ่ม (px/s^2)
-    private double friction = 1400.0;  // แรงเสียดทานเมื่อไม่กด (px/s^2)
+    // NPC sprite (ถ้าเลือกเป็น NPC)
+    private NPCSpriteSheet npc;
+    private Direction dir = Direction.DOWN;
+    private boolean moving = false;
 
-    Player(int x, int y) {
-        this.x = x;
-        this.y = y;
-        this.px = x;
-        this.py = y;
-        this.character = new CharacterConfig("Default", 1, 6);
+    private long lastAnimTime = System.currentTimeMillis();
+
+    // override action (ใช้ตอนตกปลา)
+    private NPCSpriteSheet.Action overrideAction = null;
+
+    public enum Direction { DOWN, LEFT, RIGHT, UP }
+
+    public Player(int x, int y){
+        this.x = x; this.y = y;
     }
 
-    void setCharacter(CharacterConfig config) {
-        this.character = config;
-    }
-
-    // เมธอดเดิม (ไม่ใช้ในโหมดลื่นไหล แต่คงไว้เพื่อความเข้ากันได้)
-    void moveUp()    { y = Math.max(0, y - SPEED); }
-    void moveDown()  { y = Math.min(800 - SIZE, y + SPEED); }
-    void moveLeft()  { x = Math.max(0, x - SPEED); }
-    void moveRight() { x = Math.min(1400 - SIZE, x + SPEED); }
-
-    // การเคลื่อนที่แบบลื่นไหล (อัปเดตด้วย dt)
-    // worldW/worldH ใช้จำกัดไม่ให้ออกนอกจอ
-    void updateMovement(double dt, boolean up, boolean down, boolean left, boolean right, int worldW, int worldH) {
-        // คำนวณทิศอินพุต
-        double ix = (right ? 1 : 0) - (left ? 1 : 0);
-        double iy = (down ? 1 : 0) - (up ? 1 : 0);
-
-        // ปกติค่า dt อาจเป็น 0 ได้ในบางเฟรม
-        if (dt < 0) dt = 0;
-        if (dt > 0.1) dt = 0.1; // กันเฟรมกระตุก
-
-        // ถ้ามีอินพุต ให้เร่งความเร็วไปตามทิศ (normalize เพื่อกัน diagonal เร็วเกิน)
-        double len = Math.hypot(ix, iy);
-        if (len > 0) {
-            ix /= len; iy /= len;
-            vx += ix * accel * dt;
-            vy += iy * accel * dt;
+    public void setCharacter(CharacterConfig cfg) {
+        this.config = cfg;
+        if (cfg != null && cfg.isNPC()) {
+            try {
+                this.npc = new NPCSpriteSheet(cfg.npcSpritePath, cfg.npcCell, "src/assets/npc_animations.json");
+                System.out.println("✅ NPC loaded: " + cfg.npcSpritePath + " cell=" + cfg.npcCell);
+            } catch (Exception e) {
+                System.out.println("❌ NPC load failed: " + cfg.npcSpritePath + " (" + e.getMessage() + ")");
+                e.printStackTrace();
+                this.npc = null;
+            }
         } else {
-            // ไม่มีอินพุต: ใช้แรงเสียดทานเพื่อลดความเร็วจนหยุด
-            double speed = Math.hypot(vx, vy);
-            if (speed > 0) {
-                double decel = friction * dt;
-                double newSpeed = Math.max(0, speed - decel);
-                double scale = (speed == 0) ? 0 : (newSpeed / speed);
-                vx *= scale;
-                vy *= scale;
-            }
+            this.npc = null;
         }
-
-        // จำกัดความเร็วสูงสุด
-        double speed = Math.hypot(vx, vy);
-        if (speed > maxSpeed) {
-            double s = maxSpeed / speed;
-            vx *= s;
-            vy *= s;
-        }
-
-        // อัปเดตตำแหน่งจริง
-        px += vx * dt;
-        py += vy * dt;
-
-        // จำกัดไม่ให้ออกนอกขอบเขต (อิงกับ SIZE)
-        if (px < 0) { px = 0; vx = 0; }
-        if (py < 0) { py = 0; vy = 0; }
-        if (px > worldW - SIZE) { px = worldW - SIZE; vx = 0; }
-        if (py > worldH - SIZE) { py = worldH - SIZE; vy = 0; }
-
-        // sync ไปที่ตำแหน่งจำนวนเต็มสำหรับการวาด
-        x = (int)Math.round(px);
-        y = (int)Math.round(py);
     }
 
-    void addMoney(int amount) {
-        money += amount;
+    public void addMoney(int v){ money += v; }
+
+    // เดิมเคยขยับพิกัด ที่นี่เปลี่ยนเป็นตั้งทิศ/สถานะเท่านั้น
+    public void moveUp(){ setDirection(Direction.UP); setMoving(true); }
+    public void moveDown(){ setDirection(Direction.DOWN); setMoving(true); }
+    public void moveLeft(){ setDirection(Direction.LEFT); setMoving(true); }
+    public void moveRight(){ setDirection(Direction.RIGHT); setMoving(true); }
+
+    public void setDirection(Direction d){ this.dir = d; }
+    public void setMoving(boolean m){ this.moving = m; }
+    public Direction getDirection(){ return dir; }
+    public boolean isMoving(){ return moving; }
+    public int getSpeed(){ return speed; }
+
+    public void setOverrideAction(NPCSpriteSheet.Action a) {
+        this.overrideAction = a;
     }
 
-    void draw(Graphics2D g2d, BufferedImage spriteSheet, GamePanel gamePanel) {
-        if (spriteSheet != null) {
-            BufferedImage sprite = gamePanel.getCharacterSprite(character.col, character.row);
-            if (sprite != null) {
-                g2d.drawImage(sprite, x, y, SIZE, SIZE, null);
-                return;
+    public void draw(Graphics2D g2d, BufferedImage legacySpriteSheet, Component cmp) {
+        long now = System.currentTimeMillis();
+        if (npc != null) {
+            NPCSpriteSheet.Action act = pickAction();
+            BufferedImage frame = npc.get(act, now);
+            int drawW = frame.getWidth();
+            int drawH = frame.getHeight();
+            g2d.drawImage(frame, x - drawW/2, y - drawH + 8, null);
+        } else {
+            g2d.setColor(new Color(255, 255, 0, 200));
+            g2d.fillOval(x-10, y-20, 20, 20);
+        }
+        // รีเซ็ต moving หลังวาด เฟรมถัดไป GamePanel จะตั้งตามอินพุตใหม่
+        moving = false;
+        lastAnimTime = now;
+    }
+
+    private NPCSpriteSheet.Action pickAction() {
+        if (overrideAction != null) return overrideAction;
+        if (moving) {
+            switch (dir) {
+                case UP:    return NPCSpriteSheet.Action.WALK_UP;
+                case DOWN:  return NPCSpriteSheet.Action.WALK_DOWN;
+                case LEFT:  return NPCSpriteSheet.Action.WALK_LEFT;
+                case RIGHT: return NPCSpriteSheet.Action.WALK_RIGHT;
+            }
+        } else {
+            switch (dir) {
+                case UP:    return NPCSpriteSheet.Action.IDLE_UP;
+                case DOWN:  return NPCSpriteSheet.Action.IDLE_DOWN;
+                case LEFT:  return NPCSpriteSheet.Action.IDLE_LEFT;
+                case RIGHT: return NPCSpriteSheet.Action.IDLE_RIGHT;
             }
         }
-        
-        g2d.setColor(new Color(200, 100, 50));
-        g2d.fillRect(x, y, SIZE, SIZE);
-        g2d.setColor(new Color(255, 150, 100));
-        g2d.fillOval(x + 5, y - 10, 30, 25);
-        g2d.setColor(Color.BLACK);
-        g2d.fillOval(x + 12, y - 5, 5, 5);
-        g2d.fillOval(x + 23, y - 5, 5, 5);
+        return NPCSpriteSheet.Action.IDLE_DOWN;
     }
 }

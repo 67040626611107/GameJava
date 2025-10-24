@@ -1,21 +1,40 @@
 import javax.swing.*;
 import java.awt.*;
 
-public class FishingGame extends JFrame {
+public class FishingGame extends JFrame implements CharacterSelectPanel.Listener {
+    private CardLayout cards;
+    private JPanel mainPanel;
+    private GamePanel gamePanel;
+
     public FishingGame() {
         setTitle("Fishing Adventure 2D");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
-        
-        JPanel mainPanel = new JPanel(new CardLayout());
-        GamePanel gamePanel = new GamePanel();
-        mainPanel.add(new CharacterSelectPanel(gamePanel), "select");
+
+        cards = new CardLayout();
+        mainPanel = new JPanel(cards);
+
+        gamePanel = new GamePanel();
+
+        CharacterSelectPanel selectPanel = new CharacterSelectPanel(gamePanel, this);
+
+        mainPanel.add(selectPanel, "select");
         mainPanel.add(gamePanel, "game");
-        
+
         add(mainPanel);
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
+
+        // เริ่มที่หน้าเลือกตัวละคร
+        cards.show(mainPanel, "select");
+    }
+
+    @Override
+    public void onCharacterSelected(CharacterConfig cfg) {
+        // สลับไปหน้าเกมและคืนโฟกัสให้ GamePanel
+        cards.show(mainPanel, "game");
+        SwingUtilities.invokeLater(() -> gamePanel.requestFocusInWindow());
     }
 
     public static void main(String[] args) {
