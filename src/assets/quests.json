@@ -1,0 +1,25 @@
+{
+  "title": "Fishing Guide",
+  "goals": [
+    {
+      "id": "catch_any",
+      "text": "Catch 6 Fish",
+      "type": "catch_count",
+      "filter": "any",
+      "target": 6,
+      "optional": false,
+      "rewardMoney": 150,
+      "rewardText": ""
+    },
+    {
+      "id": "catch_golden",
+      "text": "Catch 2 Golden Fish",
+      "type": "catch_count",
+      "filter": "rarity:golden",
+      "target": 2,
+      "optional": false,
+      "rewardMoney": 250,
+      "rewardText": "Bonus Chest"
+    }
+  ]
+}

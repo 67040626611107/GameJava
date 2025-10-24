@@ -2,19 +2,22 @@ public class FishingSequence {
     Fish caughtFish;
     FishingPhase phase;
     
+    // ใช้เป็นตัวนับ "รอปลากินเหยื่อ"
     long castTimeRemaining = 3000;
     long castMaxTime = 3000;
     boolean castFinished = false;
     float castProgress = 0;
-    float perfectZone = 0.7f;
+    float perfectZone = 0.7f; // ไม่ใช้แล้ว
     
-    long snagTimeRemaining = 2000;
-    long snagMaxTime = 2000;
-    boolean snagFinished = false;
+    // SNAG ไม่ใช้แล้ว แต่เก็บฟิลด์ไว้ให้คอมไพล์ผ่าน
+    long snagTimeRemaining = 0;
+    long snagMaxTime = 0;
+    boolean snagFinished = true;
     boolean shaking = false;
-    boolean snagSuccess = false;
+    boolean snagSuccess = true;
     int shakeCounter = 0;
     
+    // REELING จะขับเคลื่อนโดย ReelMinigame ภายนอก
     float tension = 0.5f;
     float reelingValue = 0;
     float reelingMaxValue = 100;
@@ -24,67 +27,41 @@ public class FishingSequence {
     FishingSequence(Fish fish) {
         this.caughtFish = fish;
         this.phase = FishingPhase.CASTING;
+        // สุ่มเวลารอ 2-5 วินาที แล้วค่อยเข้า REELING อัตโนมัติ
+        this.castMaxTime = (long) (2000 + Math.random() * 3000);
+        this.castTimeRemaining = castMaxTime;
+        this.castFinished = false;
     }
 
     void update() {
         if (phase == FishingPhase.CASTING) {
             castTimeRemaining -= 50;
-            castProgress = 1 - (float) castTimeRemaining / castMaxTime;
+            if (castTimeRemaining < 0) castTimeRemaining = 0;
+            castProgress = 1 - (float) castTimeRemaining / Math.max(1, castMaxTime);
             if (castTimeRemaining <= 0) {
+                // ปลากัดแล้ว เข้าสู่ REELING ทันที
+                phase = FishingPhase.REELING;
                 castFinished = true;
+                // ค่าใน REELING จะถูกขับโดย ReelMinigame จาก GamePanel
+                reelingFinished = false;
+                success = false;
             }
         } else if (phase == FishingPhase.SNAG) {
-            snagTimeRemaining -= 50;
-            shakeCounter++;
-            if (shakeCounter % 15 == 0) {
-                shaking = !shaking;
-            }
-            if (snagTimeRemaining <= 0) {
-                snagFinished = true;
-                if (!snagSuccess) {
-                    success = false;
-                    reelingFinished = true;
-                }
-            }
+            // ไม่ใช้ SNAG แล้ว ข้ามเฟสนี้ (ถือว่าสำเร็จเสมอ)
+            snagFinished = true;
+            phase = FishingPhase.REELING;
         } else if (phase == FishingPhase.REELING) {
-            tension += (Math.random() - 0.5) * 0.05f;
-            tension = Math.max(0, Math.min(1, tension));
-            
-            float controlCenter = 0.5f;
-            float controlRange = 0.15f;
-            
-            if (tension < controlCenter - controlRange || tension > controlCenter + controlRange) {
-                reelingValue -= 2;
-            } else {
-                reelingValue += 1;
-            }
-            
-            if (reelingValue >= reelingMaxValue) {
-                success = true;
-                reelingFinished = true;
-            } else if (reelingValue <= 0) {
-                success = false;
-                reelingFinished = true;
-            }
+            // ปล่อยให้ GamePanel + ReelMinigame จัดการความคืบหน้า
+            // ไม่แก้ reelingValue/tension ที่นี่
         }
     }
 
-    void castPress() {
-        float tolerance = 0.1f;
-        if (Math.abs(castProgress - perfectZone) < tolerance) {
-            success = true;
-        }
-        castFinished = true;
-    }
+    // ไม่ใช้แล้ว (คงไว้เพื่อความเข้ากันได้)
+    void castPress() { /* no-op */ }
 
-    void snagPress() {
-        if (shaking) {
-            snagSuccess = true;
-        }
-        snagFinished = true;
-    }
+    // ไม่ใช้แล้ว (คงไว้เพื่อความเข้ากันได้)
+    void snagPress() { /* no-op */ }
 
-    void updateTension(float normalizedX) {
-        tension = normalizedX;
-    }
+    // เดิมใช้เมาส์ควบคุม tension — ไม่ใช้ใน flow ใหม่
+    void updateTension(float normalizedX) { this.tension = normalizedX; }
 }

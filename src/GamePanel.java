@@ -10,6 +10,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+// Quest system
+import quest.QuestManager;
+
 public class GamePanel extends JPanel implements KeyListener, MouseMotionListener, MouseListener {
     private Player player;
     private GameState gameState;
@@ -21,21 +24,35 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private CharacterConfig currentCharacter;
     private static final int SPRITE_SIZE = 16;
     private static final int MARGIN = 1;
-    
+
     private static final int WIDTH = 1400;
     private static final int HEIGHT = 800;
     private static final int TILE_SIZE = 40;
 
-    // Reel minigame (pasted.txt-like)
+    // พื้นน้ำ: กำหนดตำแหน่ง-ขนาดกลางเกม
+    private static final int WATER_AREA_HEIGHT = 200;              // ความสูงของบ่อน้ำด้านล่าง
+    private static final int WATER_TOP_Y = HEIGHT - WATER_AREA_HEIGHT;
+
+    // ชายหาด/ดินริมฝั่ง (กันลงน้ำ)
+    private static final int SHORE_HEIGHT = 28;                    // ความสูงชายหาดก่อนขอบน้ำ
+    private static final int WATER_COLLISION_MARGIN = 4;           // เว้นเล็กน้อยกัน sprite จมหัว
+
+    // Reel minigame
     private ReelMinigame reelMinigame;
 
-    // HUD layout (โปร่งแสง ไม่บังจอทั้งหมด)
+    // HUD layout
     private static final int HUD_W = 860;
     private static final int HUD_H = 160;
     private static final int HUD_MARGIN_BOTTOM = 40;
     private static final int HUD_RADIUS = 16;
-    private static final int HUD_ALPHA = 140; // โปร่งแสง (0-255)
+    private static final int HUD_ALPHA = 140;
     private static final int HUD_BORDER_ALPHA = 190;
+
+    // Quests
+    private final QuestManager questManager = new QuestManager();
+
+    // Wave asset (เอาไปปูที่ขอบน้ำ)
+    private BufferedImage waveTile; // src/assets/waves/water_wave_row_60x30.png
 
     public GamePanel() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -50,8 +67,13 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         caughtFish = new ArrayList<>();
         fishingSequence = null;
         currentCharacter = new CharacterConfig("Default", 1, 6);
-        
+
         loadSpriteSheet();
+        loadWaveTile(); // โหลด asset คลื่น
+
+        // โหลดเควสจาก JSON
+        questManager.load("src/assets/quests.json");
+
         new javax.swing.Timer(50, e -> update()).start();
     }
 
@@ -64,7 +86,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             if (!file.exists()) {
                 file = new File("./src/spritesheet.png");
             }
-            
+
             if (file.exists()) {
                 spriteSheet = ImageIO.read(file);
                 System.out.println("✅ โหลด spritesheet สำเร็จจาก: " + file.getAbsolutePath());
@@ -76,6 +98,24 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             System.out.println("📁 Working directory: " + System.getProperty("user.dir"));
             System.out.println("🎨 จะใช้ asset ที่วาดเองแทน");
             spriteSheet = null;
+        }
+    }
+
+    // โหลด tile คลื่น (ถ้าไม่มี ให้รันตัวสร้าง assets.waves.WaveAssetGenerator ก่อน)
+    private void loadWaveTile() {
+        try {
+            File f1 = new File("src/assets/waves/water_wave_row_60x30.png");
+            File f2 = new File("src/assets/water_wave_row_60x30.png"); // เผื่อย้ายไฟล์
+            File use = f1.exists() ? f1 : (f2.exists() ? f2 : null);
+            if (use != null) {
+                waveTile = ImageIO.read(use);
+                System.out.println("✅ โหลด wave tile: " + use.getAbsolutePath());
+            } else {
+                System.out.println("⚠️ ไม่พบ wave tile (water_wave_row_60x30.png) กรุณารัน WaveAssetGenerator");
+            }
+        } catch (Exception ex) {
+            System.out.println("⚠️ โหลด wave tile ไม่สำเร็จ: " + ex.getMessage());
+            waveTile = null;
         }
     }
 
@@ -101,12 +141,17 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             if (keysPressed.contains(KeyEvent.VK_DOWN)) player.moveDown();
             if (keysPressed.contains(KeyEvent.VK_LEFT)) player.moveLeft();
             if (keysPressed.contains(KeyEvent.VK_RIGHT)) player.moveRight();
+
+            // กันเดินลงน้ำ: ให้ยืนได้สูงสุดแค่บนชายหาด/ริมฝั่ง
+            if (player.y > WATER_TOP_Y - WATER_COLLISION_MARGIN) {
+                player.y = WATER_TOP_Y - WATER_COLLISION_MARGIN;
+            }
         }
 
-        // Drive reel minigame tick during REELING
+        // ขับ reel minigame
         if (gameState == GameState.REELING && reelMinigame != null && fishingSequence != null && !reelMinigame.isFinished()) {
-            int barWidth = HUD_W - 80; // main bar width inside HUD
-            reelMinigame.update(0.05, barWidth); // timer ~50ms
+            int barWidth = HUD_W - 80;
+            reelMinigame.update(0.05, barWidth);
             if (reelMinigame.isFinished()) {
                 fishingSequence.reelingFinished = true;
                 fishingSequence.success = reelMinigame.isSuccess();
@@ -124,26 +169,37 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
 
         switch (gameState) {
             case EXPLORATION:
-                drawExploration(g2d);
+                drawWorld(g2d);
                 break;
             case CASTING:
+                drawWorld(g2d);
+                drawCasting(g2d);
+                break;
+            case SNAG:
+                drawWorld(g2d);
                 drawCasting(g2d);
                 break;
             case REELING:
+                drawWorld(g2d);
                 drawReeling(g2d);
                 break;
             case RESULT:
+                drawWorld(g2d);
                 drawResult(g2d);
                 break;
             case INVENTORY:
+                drawWorld(g2d);
                 drawInventory(g2d);
                 break;
         }
 
         drawUI(g2d);
+
+        // Quest HUD bottom-right
+        questManager.draw(g2d, WIDTH, HEIGHT);
     }
 
-    // วาดโลกและผู้เล่น (ใช้เป็นฉากหลังสำหรับทุกเฟสที่ต้องการเห็นเกมปกติ)
+    // วาดโลก + ชายหาด + น้ำ + คลื่น
     private void drawWorld(Graphics2D g2d) {
         // พื้นหญ้าแบบกริด
         for (int x = 0; x < WIDTH; x += TILE_SIZE) {
@@ -154,32 +210,37 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
                 g2d.drawRect(x, y, TILE_SIZE, TILE_SIZE);
             }
         }
-        // น้ำด้านล่าง
+
+        // ชายหาด/ดินริมฝั่ง (อยู่เหนือขอบน้ำเล็กน้อย)
+        g2d.setColor(new Color(210, 180, 120)); // สีทรายอ่อน
+        g2d.fillRect(0, WATER_TOP_Y - SHORE_HEIGHT, WIDTH, SHORE_HEIGHT);
+        // ไล่เฉดเล็กน้อยให้ดูนุ่ม
+        g2d.setColor(new Color(180, 150, 95, 80));
+        g2d.fillRect(0, WATER_TOP_Y - SHORE_HEIGHT, WIDTH, 8);
+
+        // น้ำ
         g2d.setColor(new Color(70, 180, 220));
-        g2d.fillRect(0, HEIGHT - 200, WIDTH, 200);
-        g2d.setColor(new Color(100, 200, 255, 100));
-        for (int i = 0; i < WIDTH; i += 60) {
-            g2d.drawArc(i, HEIGHT - 200, 50, 30, 0, 180);
+        g2d.fillRect(0, WATER_TOP_Y, WIDTH, HEIGHT - WATER_TOP_Y);
+
+        // คลื่น: ใช้ tile asset ปูตามความกว้าง
+        if (waveTile != null) {
+            for (int i = 0; i < WIDTH; i += waveTile.getWidth()) {
+                g2d.drawImage(waveTile, i, WATER_TOP_Y, waveTile.getWidth(), waveTile.getHeight(), null);
+            }
+        } else {
+            // ถ้าไม่มี asset ให้ fallback เป็นเส้นโค้งแบบเดิมบางๆ
+            g2d.setColor(new Color(255, 255, 255, 100));
+            g2d.setStroke(new BasicStroke(2f));
+            for (int i = 0; i < WIDTH; i += 60) {
+                g2d.drawArc(i, WATER_TOP_Y, 60, 30, 0, 180);
+            }
         }
+
         // ตัวละคร
         player.draw(g2d, spriteSheet, this);
     }
 
-    private void drawExploration(Graphics2D g2d) {
-        drawWorld(g2d);
-
-        // ข้อความเฉพาะโหมดสำรวจ
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Arial", Font.BOLD, 16));
-        g2d.drawString("ลูกศร = เคลื่อนที่ | SPACE = ตกปลา | I = Inventory", 20, 30);
-        g2d.drawString("ไปยังน้ำเพื่อตกปลา", 20, 50);
-    }
-
     private void drawCasting(Graphics2D g2d) {
-        // แสดงเกมปกติด้านหลัง
-        drawWorld(g2d);
-
-        // กล่อง HUD โปร่งแสงด้านล่าง
         Rectangle hud = hudRect();
         drawHudBox(g2d, hud, HUD_ALPHA, HUD_BORDER_ALPHA);
 
@@ -188,7 +249,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         g2d.setFont(new Font("Arial", Font.BOLD, 28));
         g2d.drawString("ขั้นที่ 1: รอปลากินเหยื่อ", hud.x + 24, hud.y + 42);
 
-        // แถบความคืบหน้า (เล็กลง ไม่กินเต็มจอ)
+        // แถบความคืบหน้า
         int progX = hud.x + 24;
         int progY = hud.y + 70;
         int progW = hud.width - 48;
@@ -212,26 +273,20 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     }
 
     private void drawReeling(Graphics2D g2d) {
-        // แสดงเกมปกติด้านหลัง
-        drawWorld(g2d);
-
         if (reelMinigame == null) {
             reelMinigame = new ReelMinigame();
         }
 
-        // ข้อความคำแนะนำ (ลอยด้านบน โปร่งแสง เห็นฉากหลัง)
+        // ข้อความคำแนะนำ
         drawTopHint(g2d, "ค้าง SPACE หรือ คลิกเมาส์ซ้ายค้าง เพื่อดึง");
 
-        // กล่อง HUD โปร่งแสงด้านล่าง
         Rectangle hud = hudRect();
         drawHudBox(g2d, hud, HUD_ALPHA, HUD_BORDER_ALPHA);
 
-        // หัวข้อ
         g2d.setColor(Color.WHITE);
         g2d.setFont(new Font("Arial", Font.BOLD, 28));
         g2d.drawString("ขั้นที่ 2: REELING", hud.x + 24, hud.y + 42);
 
-        // ค่าสีตาม progress (แดง -> เขียว)
         float pt = (float) Math.max(0, Math.min(1, reelMinigame.getProgress() / 100.0));
         Color from = new Color(99, 42, 42);
         Color to   = new Color(89, 126, 89);
@@ -241,20 +296,17 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             (int)(from.getBlue()  + (to.getBlue()  - from.getBlue())  * pt)
         );
 
-        // ตำแหน่งภายใน HUD
         int innerPad = 24;
         int barX = hud.x + innerPad;
         int barY = hud.y + 70;
         int barWidth = hud.width - innerPad * 2;
         int barHeight = 36;
 
-        // แถบหลัก
         g2d.setColor(new Color(0,0,0,120));
         g2d.fillRoundRect(barX, barY, barWidth, barHeight, 12, 12);
         g2d.setColor(new Color(0,0,0,160));
         g2d.drawRoundRect(barX, barY, barWidth, barHeight, 12, 12);
 
-        // player window (white)
         int pbW = (int)Math.round(barWidth * reelMinigame.getControlWidth());
         int pbX = (int)Math.round(barX + reelMinigame.getPlayerBarCenter() * barWidth - pbW/2.0);
         boolean overlap = overlaps(
@@ -266,12 +318,10 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         g2d.setColor(overlap ? new Color(255,255,255,230) : new Color(255,255,255,170));
         g2d.fillRoundRect(pbX, barY, pbW, barHeight, 10, 10);
 
-        // fish indicator
         int fishPx = (int)Math.round(barX + reelMinigame.getFishCenter()*barWidth - 4);
         g2d.setColor(new Color(67,75,91));
         g2d.fillRoundRect(fishPx, barY, 8, barHeight, 10, 10);
 
-        // progress bar (เล็ก) ด้านบนของ HUD
         int progX = hud.x + innerPad;
         int progY = hud.y + 120;
         int progW = hud.width - innerPad * 2;
@@ -286,17 +336,13 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         g2d.setColor(new Color(255,255,255,230));
         g2d.fillRoundRect(progX, progY, fill, progH, 10, 10);
 
-        // accent line
         g2d.setColor(mix);
         g2d.drawLine(barX, barY-2, barX+barWidth, barY-2);
     }
 
     private void drawResult(Graphics2D g2d) {
-        // ยังใช้ overlay โปร่งแสง แต่ไม่ทึบทั้งจอ
-        drawWorld(g2d);
-
         if (fishingSequence.success) {
-            g2d.setColor(new Color(0, 200, 0, 120)); // โปร่งแสง เห็นฉากหลัง
+            g2d.setColor(new Color(0, 200, 0, 120));
             g2d.fillRect(0, 0, WIDTH, HEIGHT);
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font("Arial", Font.BOLD, 48));
@@ -307,7 +353,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             g2d.drawString("ชนิด: " + caughtFishObj.name, WIDTH / 2 - 120, 300);
             g2d.drawString("ราคา: " + caughtFishObj.price + " บาท", WIDTH / 2 - 120, 350);
         } else {
-            g2d.setColor(new Color(200, 0, 0, 120)); // โปร่งแสง
+            g2d.setColor(new Color(200, 0, 0, 120));
             g2d.fillRect(0, 0, WIDTH, HEIGHT);
             g2d.setColor(Color.WHITE);
             g2d.setFont(new Font("Arial", Font.BOLD, 48));
@@ -319,10 +365,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     }
 
     private void drawInventory(Graphics2D g2d) {
-        // ให้เห็นฉากหลัง แล้ว overlay โปร่งแสง
-        drawWorld(g2d);
-
-        g2d.setColor(new Color(0, 0, 0, 180)); // โปร่งแสง
+        g2d.setColor(new Color(0, 0, 0, 180));
         g2d.fillRect(0, 0, WIDTH, HEIGHT);
 
         g2d.setColor(Color.WHITE);
@@ -365,40 +408,36 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     }
 
     private void drawHudBox(Graphics2D g2d, Rectangle r, int alphaFill, int alphaBorder) {
-        // เงาอ่อนๆ
         g2d.setColor(new Color(0, 0, 0, 60));
         g2d.fillRoundRect(r.x + 2, r.y + 4, r.width, r.height, HUD_RADIUS + 4, HUD_RADIUS + 4);
 
-        // กล่องโปร่งแสง
         g2d.setColor(new Color(20, 20, 25, Math.max(0, Math.min(255, alphaFill))));
         g2d.fillRoundRect(r.x, r.y, r.width, r.height, HUD_RADIUS, HUD_RADIUS);
 
-        // เส้นขอบโปร่ง ๆ
         g2d.setColor(new Color(255, 255, 255, Math.max(0, Math.min(255, alphaBorder))));
         g2d.drawRoundRect(r.x, r.y, r.width, r.height, HUD_RADIUS, HUD_RADIUS);
     }
 
-    // วาดข้อความลอยด้านบน (โปร่งแสง + เงาเล็กน้อย) โดยไม่มีกล่องพื้นหลัง
     private void drawTopHint(Graphics2D g2d, String text) {
         Font font = new Font("Arial", Font.BOLD, 18);
         g2d.setFont(font);
         FontMetrics fm = g2d.getFontMetrics();
         int textW = fm.stringWidth(text);
         int x = (WIDTH - textW) / 2;
-        int y = 42; // ระยะจากขอบบน
+        int y = 42;
 
-        // เงาเบาๆ
         g2d.setColor(new Color(0, 0, 0, 110));
         g2d.drawString(text, x + 1, y + 1);
 
-        // ตัวอักษรโปร่งแสง
         g2d.setColor(new Color(255, 255, 255, 230));
         g2d.drawString(text, x, y);
     }
 
     private void startFishing() {
-        if (player.y < HEIGHT - 200) {
-            JOptionPane.showMessageDialog(this, "ต้องอยู่ใกล้น้ำเพื่อตกปลา!");
+        // อนุญาตตกปลาเฉพาะเมื่อยืนบน "ชายหาด" ชิดขอบน้ำ
+        boolean onShore = (player.y >= WATER_TOP_Y - SHORE_HEIGHT) && (player.y <= WATER_TOP_Y - WATER_COLLISION_MARGIN);
+        if (!onShore) {
+            JOptionPane.showMessageDialog(this, "ต้องยืนที่ริมฝั่ง (ชายหาด) ใกล้น้ำเพื่อตกปลา!");
             return;
         }
 
@@ -406,11 +445,10 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         Fish randomFish = Fish.getRandomFish();
         fishingSequence = new FishingSequence(randomFish);
         reelMinigame = null;
-        
+
         javax.swing.Timer timer = new javax.swing.Timer(50, e -> {
             fishingSequence.update();
 
-            // เมื่อถึงเวลา ปลากัด -> FishingSequence จะเปลี่ยนเฟสเป็น REELING เอง
             if (fishingSequence.phase == FishingPhase.REELING && reelMinigame == null) {
                 reelMinigame = new ReelMinigame();
                 gameState = GameState.REELING;
@@ -420,6 +458,15 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
                 if (fishingSequence.success) {
                     caughtFish.add(fishingSequence.caughtFish);
                     player.addMoney(fishingSequence.caughtFish.price);
+
+                    // อัปเดตเควส
+                    questManager.onFishCaught(fishingSequence.caughtFish.name, fishingSequence.caughtFish.golden);
+
+                    // จ่ายรางวัลต่อ goal ที่เพิ่งสำเร็จ
+                    java.util.List<quest.QuestManager.GoalPayout> pays = questManager.collectNewPayouts();
+                    for (quest.QuestManager.GoalPayout p : pays) {
+                        if (p.money > 0) player.addMoney(p.money);
+                    }
                 }
             }
             repaint();
@@ -437,7 +484,8 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
                     startFishing();
                     break;
                 case CASTING:
-                    // รอเฉยๆ ไม่ต้องกดอะไร
+                    break;
+                case SNAG:
                     break;
                 case RESULT:
                 case INVENTORY:
@@ -467,7 +515,6 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     @Override
     public void mouseMoved(MouseEvent e) {
         mouseX = e.getX();
-        // ไม่ใช้เมาส์เพื่อ tension แล้วใน REELING ใหม่นี้
     }
 
     @Override
@@ -479,6 +526,10 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     public void mousePressed(MouseEvent e) {
         if (gameState == GameState.REELING && e.getButton() == MouseEvent.BUTTON1) {
             if (reelMinigame != null) reelMinigame.press();
+        }
+        // toggle แผง Quest
+        if (questManager.handleClick(e.getX(), e.getY())) {
+            repaint();
         }
     }
 
@@ -492,7 +543,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     @Override public void mouseClicked(MouseEvent e) {}
     @Override public void mouseEntered(MouseEvent e) {}
     @Override public void mouseExited(MouseEvent e) {}
-    
+
     private static boolean overlaps(double pbCenter, double pbWidth, double fishCenter, double fishWidth) {
         double pbHalf = pbWidth / 2.0;
         double fishHalf = fishWidth / 2.0;
