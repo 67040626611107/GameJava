@@ -1,0 +1,53 @@
+{
+  "worldId": "world2",
+  "displayName": "World 2 - Deep Waters",
+  "spawnRules": {
+    "waterTileTypes": ["WATER", "DEEP_WATER"],
+    "fishSpawnRate": 0.6
+  },
+  "fishing": {
+    "baseProgressSpeed": 0.6,
+    "progressSpeedModifierByDifficulty": {
+      "easy": 1.2,
+      "normal": 1.0,
+      "hard": 0.7,
+      "extreme": 0.4
+    },
+    "barScaleMultiplier": 1.4,
+    "biteSpeedMultiplier": {
+      "easy": 1.0,
+      "normal": 1.0,
+      "hard": 1.5,
+      "extreme": 2.0
+    }
+  },
+  "fish": [
+    {
+      "id": "w2-fish-001",
+      "name": "Striped Snapper",
+      "difficulty": "normal",
+      "struggleStrength": 1.0,
+      "biteTimeSeconds": 6,
+      "price": 50,
+      "image": "images/fish/striped_snapper.png"
+    },
+    {
+      "id": "w2-fish-002",
+      "name": "Fierce Eel",
+      "difficulty": "hard",
+      "struggleStrength": 1.8,
+      "biteTimeSeconds": 4,
+      "price": 150,
+      "image": "images/fish/fierce_eel.png"
+    },
+    {
+      "id": "w2-fish-003",
+      "name": "Tiny Minnow",
+      "difficulty": "easy",
+      "struggleStrength": 0.6,
+      "biteTimeSeconds": 10,
+      "price": 10,
+      "image": ""
+    }
+  ]
+}
