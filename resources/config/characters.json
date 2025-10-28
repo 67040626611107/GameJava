@@ -1,0 +1,22 @@
+{
+  "characters": [
+    {
+      "id": "starter",
+      "displayName": "Starter",
+      "stats": {
+        "luck": 0.0,
+        "reelBarScaleBonus": 0.0,
+        "biteSpeedBonus": 0.0
+      }
+    },
+    {
+      "id": "Fisherman_Fin",
+      "displayName": "Fisherman Fin",
+      "stats": {
+        "luck": 0.15,
+        "reelBarScaleBonus": 0.1,
+        "biteSpeedBonus": 0.2
+      }
+    }
+  ]
+}

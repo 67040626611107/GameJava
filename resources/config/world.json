@@ -1,0 +1,35 @@
+{
+  "worlds" : [
+    {
+      "id": 1,
+      "name": "World 1",
+      "reelProgressRate": 1.0,
+      "fishWiggleStrength": 1.0,
+      "biteTimeBaseMs": 2000,
+      "biteTimeVarianceMs": 1000,
+      "reelBarScale": 1.0,
+      "map": {
+        "width": 32,
+        "height": 18,
+        "tiles": "GROUND"
+      }
+    },
+    {
+      "id": 2,
+      "name": "World 2",
+      "reelProgressRate": 0.6,
+      "fishWiggleStrength": 1.6,
+      "biteTimeBaseMs": 1400,
+      "biteTimeVarianceMs": 600,
+      "reelBarScale": 1.1,
+      "map": {
+        "width": 32,
+        "height": 18,
+        "centerWater": true,
+        "waterRadius": 6,
+        "groundTile": "GROUND",
+        "waterTile": "WATER"
+      }
+    }
+  ]
+}

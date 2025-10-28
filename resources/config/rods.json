@@ -1,0 +1,40 @@
+{
+  "rods": [
+    {
+      "id": "starter_rod",
+      "displayName": "Starter Rod",
+      "price": 0,
+      "reelBarScaleBonus": 0.0,
+      "luckBonus": 0.0,
+      "biteSpeedBonus": 0.0,
+      "goldenChanceBonus": 0.0
+    },
+    {
+      "id": "bamboo_rod",
+      "displayName": "Bamboo Rod",
+      "price": 150,
+      "reelBarScaleBonus": 0.10,
+      "luckBonus": 0.05,
+      "biteSpeedBonus": 0.10,
+      "goldenChanceBonus": 0.05
+    },
+    {
+      "id": "pro_rod",
+      "displayName": "Pro Rod",
+      "price": 400,
+      "reelBarScaleBonus": 0.20,
+      "luckBonus": 0.10,
+      "biteSpeedBonus": 0.20,
+      "goldenChanceBonus": 0.12
+    },
+    {
+      "id": "legend_rod",
+      "displayName": "Legend Rod",
+      "price": 1200,
+      "reelBarScaleBonus": 0.35,
+      "luckBonus": 0.18,
+      "biteSpeedBonus": 0.30,
+      "goldenChanceBonus": 0.25
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "fish": [
+    {
+      "id": "common_carp",
+      "displayName": "Common Carp",
+      "basePrice": 20,
+      "imagePath": "assets/fish/common_carp.png",
+      "difficulty": {
+        "reelRateMul": 1.0,
+        "wiggleMul": 1.0,
+        "biteSpeedMul": 1.0
+      }
+    },
+    {
+      "id": "electric_eel",
+      "displayName": "Electric Eel",
+      "basePrice": 120,
+      "imagePath": null,
+      "difficulty": {
+        "reelRateMul": 0.8,
+        "wiggleMul": 1.4,
+        "biteSpeedMul": 1.2
+      }
+    }
+  ]
+}
