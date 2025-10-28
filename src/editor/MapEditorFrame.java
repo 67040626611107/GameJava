@@ -42,6 +42,11 @@ public class MapEditorFrame extends JFrame {
         loadIfExists();
     }
 
+    // (ใหม่) เผย CanvasPanel สำหรับตั้งค่า overlay จากภายนอก
+    public CanvasPanel getCanvas() {
+        return canvas;
+    }
+
     private JMenuBar buildMenuBar() {
         JMenuBar mb = new JMenuBar();
 
@@ -114,22 +119,22 @@ public class MapEditorFrame extends JFrame {
                 canvas.load(data);
                 setTitle("Map Editor - " + f.getName());
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Load failed: " + ex.getMessage());
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Failed to open: " + f.getPath(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private void save() { save(mapPath); }
+    private void save() { save(this.mapPath); }
 
     private void save(String path) {
         try {
             MapData data = canvas.getMapData();
-            File out = new File(path);
-            out.getParentFile().mkdirs();
-            Files.writeString(out.toPath(), MapIO.toJson(data), StandardCharsets.UTF_8);
-            JOptionPane.showMessageDialog(this, "Saved: " + out.getPath());
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Save failed: " + ex.getMessage());
+            String txt = MapIO.toJson(data);
+            Files.writeString(new File(path).toPath(), txt, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Save failed", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

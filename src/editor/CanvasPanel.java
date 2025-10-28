@@ -9,53 +9,54 @@ import java.awt.AlphaComposite;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.*;
+import java.util.List;
 
 /**
  * แคนวาสวางออบเจ็กต์แบบ snap-to-grid + กล้องแพนได้ + ปรับ snap ได้
- * - คลิกซ้าย: วางออบเจ็กต์ (Shift = ไม่ชน, Ctrl = half-snap, Alt = free place)
- * - คลิกขวา: ลบออบเจ็กต์ที่อยู่ใกล้
- * - Space: วางที่ตำแหน่งเมาส์ (Shift = ไม่ชน, Ctrl = half-snap, Alt = free)
- * - G: toggle grid
- * - [ / ]: ลด/เพิ่ม snap (เช่น 64 -> 32 -> 16 -> 8 ... และย้อนกลับ)
- * - Middle mouse drag: แพนแผนที่
- * - Wheel: แพนแนวตั้ง (Shift+Wheel = แพนแนวนอน)
- * - Arrow keys / WASD: แพน (32px ต่อครั้ง, กด Shift = 8px)
+ * เพิ่ม:
+ * - Hover preview ของ asset ที่เลือก (แสดง sprite ถ้ามี ไม่งั้นโชว์ ghost)
+ * - วาง/ลบ object ลงใน MapData.objects
+ * - วาด objects + depth-sort ตามแนวเท้า
+ * - Overlay น้ำตรงกลาง (centerWaterPreview) สำหรับ World 2
+ * - ปรับสแนปด้วยปุ่ม [+/-] ทีละ 1 พิกเซล และ [ / ] (หารสอง/คูณสอง)
  */
 public class CanvasPanel extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {
     private final AssetPalettePanel palette;
-    private final String manifestRoot;
     private MapData data;
     private boolean showGrid = true;
 
-    // ตำแหน่งเมาส์ล่าสุด (จอ)
-    private int lastMouseX = 0;
-    private int lastMouseY = 0;
+    // mouse/camera
+    private int lastMouseX = 0, lastMouseY = 0;
+    private int camX = 0, camY = 0;
 
-    // กล้อง
-    private int camX = 0;
-    private int camY = 0;
-
-    // แพนด้วยเมาส์กลาง
+    // middle-pan
     private boolean panning = false;
     private int panStartScreenX = 0, panStartScreenY = 0;
     private int panStartCamX = 0, panStartCamY = 0;
     private Cursor savedCursor = null;
 
-    // ปรับ snap
-    private int placementSnap = 64;     // หน่วย snap ที่ใช้วาง (ปรับได้)
+    // snap control
+    private int placementSnap = 64;
     private static final int MIN_SNAP = 2;
     private static final int MAX_SNAP = 128;
 
-    // สถานะคีย์ modifier
+    // modifiers
     private boolean altDown = false;
     private boolean ctrlDown = false;
     private boolean shiftDown = false;
 
+    // center-water overlay (World 2)
+    private boolean centerWaterPreview = false;
+    private Rectangle centerWaterRectPx = null;
+    private int centerWaterRadiusTiles = 6;
+    private Integer centerTilesW = null, centerTilesH = null;
+
+    // image cache for drawing
+    private final Map<String, BufferedImage> imageCache = new HashMap<>();
+
     public CanvasPanel(AssetPalettePanel palette, int width, int height) {
         this.palette = palette;
-        this.manifestRoot = palette.getManifestRoot();
 
         this.data = new MapData();
         this.data.width = width;
@@ -71,291 +72,209 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
         addMouseWheelListener(this);
         setFocusable(true);
         addKeyListener(this);
-
-        lastMouseX = width / 2;
-        lastMouseY = height / 2;
-
-        // Key bindings: Space (วาง), G (grid), [ ] (snap), แพนด้วยคีย์
-        InputMap im = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-        ActionMap am = getActionMap();
-
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "placeCollide");
-        am.put("placeCollide", new AbstractAction() {
-            @Override public void actionPerformed(ActionEvent e) { placeAtMouse(!shiftDown); }
-        });
-
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, InputEvent.SHIFT_DOWN_MASK), "placeNoCollide");
-        am.put("placeNoCollide", new AbstractAction() { @Override public void actionPerformed(ActionEvent e) { placeAtMouse(false); } });
-
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_G, 0), "toggleGrid");
-        am.put("toggleGrid", new AbstractAction() { @Override public void actionPerformed(ActionEvent e) { toggleGrid(); } });
-
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_OPEN_BRACKET, 0), "snapDown");
-        am.put("snapDown", new AbstractAction() { @Override public void actionPerformed(ActionEvent e) { adjustSnapDown(); } });
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, 0), "snapUp");
-        am.put("snapUp", new AbstractAction() { @Override public void actionPerformed(ActionEvent e) { adjustSnapUp(); } });
-
-        am.put("panLeft", new AbstractAction() { @Override public void actionPerformed(ActionEvent e){ panBy(step(e, -32), 0); }});
-        am.put("panRight", new AbstractAction(){ @Override public void actionPerformed(ActionEvent e){ panBy(step(e, 32), 0); }});
-        am.put("panUp", new AbstractAction()   { @Override public void actionPerformed(ActionEvent e){ panBy(0, step(e, -32)); }});
-        am.put("panDown", new AbstractAction() { @Override public void actionPerformed(ActionEvent e){ panBy(0, step(e, 32)); }});
-
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "panLeft");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "panRight");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "panUp");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "panDown");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0), "panLeft");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0), "panRight");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0), "panUp");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), "panDown");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, InputEvent.SHIFT_DOWN_MASK), "panLeft");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, InputEvent.SHIFT_DOWN_MASK), "panRight");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.SHIFT_DOWN_MASK), "panUp");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.SHIFT_DOWN_MASK), "panDown");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.SHIFT_DOWN_MASK), "panLeft");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.SHIFT_DOWN_MASK), "panRight");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, InputEvent.SHIFT_DOWN_MASK), "panUp");
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.SHIFT_DOWN_MASK), "panDown");
     }
 
-    private int step(ActionEvent e, int base){
-        boolean shift = (e.getModifiers() & ActionEvent.SHIFT_MASK) != 0;
-        return shift ? (base < 0 ? -8 : 8) : base;
-    }
+    // center-water overlay control
+    public void setCenterWaterPreview(boolean enabled, int radiusTiles, Integer tilesW, Integer tilesH) {
+        this.centerWaterPreview = enabled;
+        this.centerWaterRadiusTiles = Math.max(1, radiusTiles);
+        this.centerTilesW = tilesW;
+        this.centerTilesH = tilesH;
 
-    private void adjustSnapDown() {
-        placementSnap = Math.max(MIN_SNAP, placementSnap / 2);
+        if (!enabled) {
+            this.centerWaterRectPx = null;
+            repaint();
+            return;
+        }
+        int tile = (data != null ? data.tileSize : 64);
+        int mapW = (tilesW != null ? tilesW * tile : (data != null ? data.width : 1400));
+        int mapH = (tilesH != null ? tilesH * tile : (data != null ? data.height : 800));
+
+        int half = this.centerWaterRadiusTiles * tile;
+        int cx = mapW / 2;
+        int cy = mapH / 2;
+        int ww = half * 2;
+        int wh = (int)Math.round(half * 1.6);
+        int wx = cx - half;
+        int wy = cy - (int)Math.round(half * 0.8);
+
+        this.centerWaterRectPx = new Rectangle(wx, wy, ww, wh);
         repaint();
     }
 
-    private void adjustSnapUp() {
-        placementSnap = Math.min(MAX_SNAP, placementSnap * 2);
-        repaint();
+    public MapData getMapData() {
+        return data;
     }
 
-    @Override public void addNotify() {
-        super.addNotify();
-        palette.refreshSelected();
-    }
-
-    public void newMap(int w, int h) {
-        data = new MapData();
-        data.width = w;
-        data.height = h;
-        data.tileSize = 64;
-        data.waterTopY = h - 220;
-        camX = camY = 0;
-        setPreferredSize(new Dimension(w, h));
+    public void load(MapData data) {
+        this.data = data != null ? data : new MapData();
+        setPreferredSize(new Dimension(this.data.width, this.data.height));
         revalidate();
+
+        if (centerWaterPreview) {
+            setCenterWaterPreview(true, centerWaterRadiusTiles, centerTilesW, centerTilesH);
+        }
         repaint();
     }
 
-    public void load(MapData in) {
-        this.data = in;
-        camX = camY = 0;
-        setPreferredSize(new Dimension(in.width, in.height));
-        revalidate();
+    public void newMap(int width, int height) {
+        MapData d = new MapData();
+        d.width = width;
+        d.height = height;
+        d.tileSize = (data != null ? data.tileSize : 64);
+        d.waterTopY = Math.max(0, height - 220);
+        load(d);
+    }
+
+    public void toggleGrid() {
+        showGrid = !showGrid;
         repaint();
-    }
-
-    public MapData getMapData() { return data; }
-
-    public void toggleGrid(){ showGrid = !showGrid; repaint(); }
-    public boolean isGrid(){ return showGrid; }
-
-    private void panBy(int dx, int dy){
-        camX += dx; camY += dy;
-        clampCamera();
-        repaint();
-    }
-
-    private void clampCamera(){
-        int maxX = Math.max(0, data.width - getWidth());
-        int maxY = Math.max(0, data.height - getHeight());
-        camX = Math.max(0, Math.min(camX, maxX));
-        camY = Math.max(0, Math.min(camY, maxY));
-    }
-
-    private Point screenToWorld(int sx, int sy){
-        return new Point(sx + camX, sy + camY);
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g.create();
+    protected void paintComponent(Graphics g0) {
+        super.paintComponent(g0);
+        Graphics2D g = (Graphics2D) g0;
 
-        // world transform ตามกล้อง
-        g2.translate(-camX, -camY);
+        // ground
+        g.setColor(new Color(60, 140, 60));
+        g.fillRect(0, 0, getWidth(), getHeight());
 
-        // พื้น
-        g2.setColor(new Color(70, 180, 220));
-        g2.fillRect(0, data.waterTopY, data.width, data.height - data.waterTopY);
-        int shoreH = Math.max(28, data.tileSize/2);
-        int shoreY = data.waterTopY - shoreH;
-        g2.setColor(new Color(210,180,120));
-        g2.fillRect(0, shoreY, data.width, shoreH);
-        g2.setColor(new Color(34, 139, 34));
-        g2.fillRect(0, 0, data.width, shoreY);
-
-        // grid (ใหญ่)
-        if (showGrid) {
-            g2.setColor(new Color(255,255,255,32));
-            for (int x=0;x<=data.width;x+=data.tileSize) g2.drawLine(x,0,x,data.height);
-            for (int y=0;y<=data.height;y+=data.tileSize) g2.drawLine(0,y,data.width,y);
+        // center-water overlay if enabled
+        if (centerWaterPreview && centerWaterRectPx != null) {
+            Rectangle r = centerWaterRectPx;
+            int x = r.x - camX;
+            int y = r.y - camY;
+            g.setColor(new Color(26, 168, 208));
+            g.fillRect(x, y, r.width, r.height);
+            g.setColor(new Color(255, 255, 255, 90));
+            g.drawRect(x, y, r.width, r.height);
+        } else if (data != null) {
+            // world 1 style: horizontal water
+            int y = data.waterTopY - camY;
+            g.setColor(new Color(26, 168, 208));
+            g.fillRect(-camX, y, getWidth(), getHeight() - y);
         }
 
-        // objects
-        ArrayList<MapData.MapObject> sorted = new ArrayList<>(data.objects);
-        sorted.sort(Comparator.comparingInt(o -> (o.y + getImageHeightSafe(o))));
-        for (MapData.MapObject o : sorted) {
-            BufferedImage img = readImage(o.src);
-            if (img == null) continue;
-            g2.drawImage(img, o.x, o.y, null);
+        // draw grid
+        if (showGrid && data != null) {
+            g.setColor(new Color(255, 255, 255, 30));
+            int step = data.tileSize <= 0 ? 64 : data.tileSize;
+            for (int x = -camX % step; x < getWidth(); x += step) g.drawLine(x, 0, x, getHeight());
+            for (int y = -camY % step; y < getHeight(); y += step) g.drawLine(0, y, getWidth(), y);
+        }
 
-            if (o.collide) {
-                int imgH = img.getHeight();
-                int imgW = img.getWidth();
-                int cy = o.y + imgH - Math.max(4, o.footH);
-                g2.setColor(new Color(255, 0, 0, 80));
-                g2.fillRect(o.x, cy, imgW, Math.max(4, o.footH));
-                g2.setColor(new Color(255, 0, 0, 120));
-                g2.drawRect(o.x, cy, imgW, Math.max(4, o.footH));
+        // draw placed objects (depth-sort by y)
+        if (data != null && data.objects != null && !data.objects.isEmpty()) {
+            List<MapData.MapObject> list = new ArrayList<>(data.objects);
+            list.sort(Comparator.comparingInt(o -> o.y));
+            for (MapData.MapObject o : list) {
+                BufferedImage img = loadImageFor(o.src);
+                if (img != null) {
+                    g.drawImage(img, o.x - camX, o.y - camY, null);
+                } else {
+                    // fallback block
+                    g.setColor(new Color(0,0,0,120));
+                    g.fillRect(o.x - camX, o.y - camY, 64, 64);
+                    g.setColor(Color.WHITE);
+                    g.drawRect(o.x - camX, o.y - camY, 64, 64);
+                }
+                // show collider
+                if (o.collide) {
+                    int imgH = (img != null ? img.getHeight() : 64);
+                    int footH = Math.max(4, o.footH);
+                    Rectangle cr = new Rectangle(o.x, o.y + imgH - footH, (img != null ? img.getWidth() : 64), footH);
+                    g.setColor(new Color(255,0,0,70));
+                    g.fillRect(cr.x - camX, cr.y - camY, cr.width, cr.height);
+                    g.setColor(new Color(255,0,0,160));
+                    g.drawRect(cr.x - camX, cr.y - camY, cr.width, cr.height);
+                }
             }
         }
 
-        // Ghost preview
-        BufferedImage sel = palette.getSelectedImage();
-        if (sel == null) {
-            palette.refreshSelected();
-            sel = palette.getSelectedImage();
-        }
-        if (sel != null) {
-            int worldMouseX = lastMouseX + camX;
-            int worldMouseY = lastMouseY + camY;
+        // draw hover preview (selected asset)
+        drawHoverPreview(g);
 
-            int effSnap = effectiveSnap();
-            int gx, gy;
-            if (altDown) {
-                gx = worldMouseX;
-                gy = worldMouseY;
-            } else {
-                gx = snap(worldMouseX, effSnap);
-                gy = snap(worldMouseY, effSnap);
-            }
-
-            Composite old = g2.getComposite();
-            g2.setComposite(AlphaComposite.SrcOver.derive(0.8f));
-            g2.drawImage(sel, gx, gy, null);
-            g2.setComposite(old);
-
-            g2.setColor(new Color(255, 255, 255, 140));
-            g2.drawRect(gx, gy, sel.getWidth(), sel.getHeight());
-            g2.setColor(new Color(0,0,0,150));
-            g2.fillRoundRect(gx, Math.max(0, gy-18), 220, 16, 8, 8);
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
-            g2.drawString(shortName() + "  |  Snap: " + (altDown ? "Free" : (effSnap + "px")) +
-                            (ctrlDown ? " (half)" : ""), gx + 6, Math.max(10, gy-6));
-        }
-
-        g2.dispose();
-
-        // HUD (หน้าจอ) แสดงค่าสแนปมุมซ้ายบน
-        Graphics2D hud = (Graphics2D) g;
-        hud.setColor(new Color(0,0,0,120));
-        hud.fillRoundRect(8,8, 160, 24, 8,8);
-        hud.setColor(Color.WHITE);
-        hud.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        hud.drawString("Snap: " + (altDown ? "Free" : (effectiveSnap() + " px")) + "   ([ / ])", 16, 24);
+        // hint snap
+        g.setColor(new Color(0,0,0,120));
+        g.fillRoundRect(8, 8, 170, 26, 8, 8);
+        g.setColor(new Color(255,255,255,210));
+        g.setFont(getFont().deriveFont(Font.PLAIN, 12f));
+        g.drawString("Snap: " + placementSnap + " px  (+/-, [, ])", 16, 26);
     }
 
-    private int effectiveSnap() {
-        if (altDown) return 1; // free
-        if (ctrlDown) return Math.max(MIN_SNAP, placementSnap / 2);
-        return placementSnap;
-    }
+    private void drawHoverPreview(Graphics2D g) {
+        SelectedSprite sel = getSelectedSprite();
+        Point place = computePlacementXY(sel);
+        int px = place.x - camX;
+        int py = place.y - camY;
 
-    private String shortName() {
-        String p = palette.getSelectedAssetPath();
-        if (p == null) return "";
-        return new File(p).getName();
-    }
-
-    private BufferedImage readImage(String rel) {
-        try {
-            if (rel == null) return null;
-            File f = new File(rel);
-            if (!f.exists()) f = new File("src/" + rel);
-            if (!f.exists() && manifestRoot != null && !manifestRoot.isEmpty()) {
-                f = new File(manifestRoot, rel);
-            }
-            if (!f.exists() && rel.startsWith("src/") && manifestRoot != null) {
-                String tail = rel.substring(4);
-                f = new File(manifestRoot, tail);
-            }
-            if (!f.exists()) return null;
-            return ImageIO.read(f);
-        } catch (Exception e) { return null; }
-    }
-
-    private int getImageHeightSafe(MapData.MapObject o) {
-        BufferedImage img = readImage(o.src);
-        return (img!=null ? img.getHeight() : 0);
-    }
-
-    private int snap(int v, int grid) {
-        if (grid <= 1) return v; // free
-        return Math.max(0, (v / grid) * grid);
-    }
-
-    // วาง ณ ตำแหน่งเมาส์ (world) โดยอ่าน alt/ctrl/shift ปัจจุบัน
-    private void placeAtMouse(boolean collide) {
-        String rel = palette.getSelectedAssetPath();       // manifest-relative
-        BufferedImage img = palette.getSelectedImage();
-        if (rel == null || img == null) {
-            palette.refreshSelected();
-            rel = palette.getSelectedAssetPath();
-            img = palette.getSelectedImage();
-            if (rel == null || img == null) return;
-        }
-
-        int worldMouseX = lastMouseX + camX;
-        int worldMouseY = lastMouseY + camY;
-
-        int effSnap = effectiveSnap();
-        int gx, gy;
-        if (altDown) {
-            gx = worldMouseX;
-            gy = worldMouseY;
+        if (sel.img != null) {
+            // semi-transparent sprite preview
+            Composite old = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.65f));
+            g.drawImage(sel.img, px, py, null);
+            g.setComposite(old);
+            g.setColor(new Color(255,255,255,120));
+            g.drawRect(px, py, sel.img.getWidth(), sel.img.getHeight());
         } else {
-            gx = snap(worldMouseX, effSnap);
-            gy = snap(worldMouseY, effSnap);
+            // ghost box if no sprite selected
+            int sz = Math.max(placementSnap, 32);
+            g.setColor(new Color(255,255,255,40));
+            g.fillRect(px, py, sz, sz);
+            g.setColor(new Color(255,255,255,140));
+            g.drawRect(px, py, sz, sz);
         }
-
-        MapData.MapObject o = new MapData.MapObject();
-        o.src = rel;
-        o.x = gx;
-        o.y = gy;
-        o.collide = collide;
-        o.footH = Math.max(10, img.getHeight()/6);
-        o.layer = 0;
-
-        data.objects.add(o);
-        repaint();
     }
 
-    // ---------- input ----------
+    private record SelectedSprite(String src, BufferedImage img) {}
+
+    private SelectedSprite getSelectedSprite() {
+        String src = palette.getSelectedAssetPath();   // manifest-relative path
+        BufferedImage img = palette.getSelectedImage();
+        if (src == null && img == null) return new SelectedSprite(null, null);
+        if (img == null && src != null) img = loadImageFor(src);
+        return new SelectedSprite(src, img);
+    }
+
+    private Point computePlacementXY(SelectedSprite sel) {
+        int worldX = lastMouseX + camX;
+        int worldY = lastMouseY + camY;
+
+        int snap = placementSnap;
+        if (ctrlDown) snap = Math.max(MIN_SNAP, placementSnap / 2);
+        if (altDown) snap = 1; // free place
+
+        int px = (snap <= 1) ? worldX : (worldX / snap) * snap;
+        int py = (snap <= 1) ? worldY : (worldY / snap) * snap;
+
+        return new Point(px, py);
+    }
+
+    private BufferedImage loadImageFor(String path) {
+        if (path == null || path.isEmpty()) return null;
+        try {
+            if (imageCache.containsKey(path)) return imageCache.get(path);
+            // ลองโหลดจาก root ใน manifest ก่อน แล้วค่อย src/
+            File f0 = new File(palette.getManifestRoot(), path);
+            File f1 = new File("src/" + path);
+            File f2 = new File(path);
+            File use = f0.exists() ? f0 : (f1.exists() ? f1 : (f2.exists() ? f2 : null));
+            if (use == null) { imageCache.put(path, null); return null; }
+            BufferedImage img = ImageIO.read(use);
+            imageCache.put(path, img);
+            return img;
+        } catch (Exception e) {
+            imageCache.put(path, null);
+            return null;
+        }
+    }
+
+    // ===== Mouse/Key handlers =====
     @Override public void mouseClicked(MouseEvent e) {}
 
-    @Override
-    public void mousePressed(MouseEvent e) {
+    @Override public void mousePressed(MouseEvent e) {
         requestFocusInWindow();
-
-        altDown = e.isAltDown();
-        ctrlDown = e.isControlDown();
-        shiftDown = e.isShiftDown();
-
         if (SwingUtilities.isMiddleMouseButton(e)) {
             panning = true;
             panStartScreenX = e.getX();
@@ -367,113 +286,108 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
             return;
         }
 
-        if (SwingUtilities.isLeftMouseButton(e)) {
-            String rel = palette.getSelectedAssetPath();
-            BufferedImage img = palette.getSelectedImage();
-            if (rel == null || img == null) {
-                palette.refreshSelected();
-                rel = palette.getSelectedAssetPath();
-                img = palette.getSelectedImage();
-                if (rel == null || img == null) return;
-            }
+        // world coordinates
+        lastMouseX = e.getX();
+        lastMouseY = e.getY();
 
-            Point w = screenToWorld(e.getX(), e.getY());
-            int effSnap = e.isAltDown() ? 1 : (e.isControlDown() ? Math.max(MIN_SNAP, placementSnap/2) : placementSnap);
-            int gx = effSnap <= 1 ? w.x : snap(w.x, effSnap);
-            int gy = effSnap <= 1 ? w.y : snap(w.y, effSnap);
+        if (SwingUtilities.isLeftMouseButton(e)) {
+            // place object
+            SelectedSprite sel = getSelectedSprite();
+            if (sel.src == null && sel.img == null) return;
+            Point p = computePlacementXY(sel);
 
             MapData.MapObject o = new MapData.MapObject();
-            o.src = rel;
-            o.x = gx;
-            o.y = gy;
-            o.collide = !e.isShiftDown();
-            o.footH = Math.max(10, img.getHeight()/6);
+            o.src = sel.src != null ? sel.src : "placeholder";
+            o.x = p.x;
+            o.y = p.y;
+            o.collide = !shiftDown; // hold Shift to make non-collide
+            o.footH = 16;
             o.layer = 0;
 
-            data.objects.add(o);
+            data.objects.add(o); // mutate final list (OK)
             repaint();
         } else if (SwingUtilities.isRightMouseButton(e)) {
-            Point w = screenToWorld(e.getX(), e.getY());
-            int mx = w.x, my = w.y;
-            MapData.MapObject hit = null;
-            double best = Double.MAX_VALUE;
-            for (MapData.MapObject o : data.objects) {
-                BufferedImage img = readImage(o.src);
-                if (img == null) continue;
-                Rectangle r = new Rectangle(o.x, o.y, img.getWidth(), img.getHeight());
-                if (r.contains(mx, my)) {
-                    double d = Math.hypot(mx - (o.x + r.width/2.0), my - (o.y + r.height/2.0));
-                    if (d < best) { best = d; hit = o; }
+            // delete nearest object within small radius
+            if (data != null && data.objects != null && !data.objects.isEmpty()) {
+                int worldX = e.getX() + camX, worldY = e.getY() + camY;
+                MapData.MapObject best = null;
+                int bestD = Integer.MAX_VALUE;
+                for (MapData.MapObject o : data.objects) {
+                    int dx = (o.x - worldX), dy = (o.y - worldY);
+                    int d = dx*dx + dy*dy;
+                    if (d < bestD) { bestD = d; best = o; }
+                }
+                if (best != null && bestD < 64*64) {
+                    data.objects.remove(best);
+                    repaint();
                 }
             }
-            if (hit != null) {
-                data.objects.remove(hit);
-                repaint();
-            }
         }
     }
 
-    @Override
-    public void mouseReleased(MouseEvent e) {
-        if (SwingUtilities.isMiddleMouseButton(e) && panning) {
+    @Override public void mouseReleased(MouseEvent e) {
+        if (SwingUtilities.isMiddleMouseButton(e)) {
             panning = false;
-            if (savedCursor != null) setCursor(savedCursor);
-            savedCursor = null;
+            setCursor(savedCursor != null ? savedCursor : Cursor.getDefaultCursor());
         }
-        altDown = e.isAltDown();
-        ctrlDown = e.isControlDown();
-        shiftDown = e.isShiftDown();
     }
 
-    @Override public void mouseEntered(MouseEvent e) { }
-    @Override public void mouseExited(MouseEvent e) { }
-
-    @Override
-    public void mouseMoved(MouseEvent e) {
-        lastMouseX = e.getX();
-        lastMouseY = e.getY();
-        repaint();
-    }
-
-    @Override
-    public void mouseDragged(MouseEvent e) {
-        lastMouseX = e.getX();
-        lastMouseY = e.getY();
-
-        if (panning && SwingUtilities.isMiddleMouseButton(e)) {
-            int dxScreen = e.getX() - panStartScreenX;
-            int dyScreen = e.getY() - panStartScreenY;
-            camX = panStartCamX - dxScreen;
-            camY = panStartCamY - dyScreen;
-            clampCamera();
-        }
-        repaint();
-    }
-
-    @Override
-    public void mouseWheelMoved(MouseWheelEvent e) {
-        int notches = e.getWheelRotation();
-        boolean shift = (e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) != 0;
-        if (shift) {
-            panBy(notches * 32, 0);
+    @Override public void mouseEntered(MouseEvent e) {}
+    @Override public void mouseExited(MouseEvent e) {}
+    @Override public void mouseDragged(MouseEvent e) {
+        if (panning) {
+            camX = panStartCamX - (e.getX() - panStartScreenX);
+            camY = panStartCamY - (e.getY() - panStartScreenY);
+            repaint();
         } else {
-            panBy(0, notches * 32);
+            lastMouseX = e.getX();
+            lastMouseY = e.getY();
+            repaint();
+        }
+    }
+    @Override public void mouseMoved(MouseEvent e) {
+        lastMouseX = e.getX();
+        lastMouseY = e.getY();
+        repaint();
+    }
+    @Override public void mouseWheelMoved(MouseWheelEvent e) {
+        if (e.isShiftDown()) camX += e.getWheelRotation() * 40;
+        else camY += e.getWheelRotation() * 40;
+        repaint();
+    }
+
+    @Override public void keyTyped(KeyEvent e) {
+        // รองรับกด Shift+'=' เป็น '+'
+        char c = e.getKeyChar();
+        if (c == '+') {
+            placementSnap = Math.min(MAX_SNAP, placementSnap + 1);
+            repaint();
+        } else if (c == '-') {
+            placementSnap = Math.max(MIN_SNAP, placementSnap - 1);
+            repaint();
         }
     }
 
-    // Track modifier keys (เพื่อใช้กับ ghost/space)
-    @Override public void keyTyped(KeyEvent e) { }
     @Override public void keyPressed(KeyEvent e) {
-        if (e.getKeyCode() == KeyEvent.VK_G) toggleGrid();
-        if (e.getKeyCode() == KeyEvent.VK_ALT) altDown = true;
-        if (e.getKeyCode() == KeyEvent.VK_CONTROL) ctrlDown = true;
-        if (e.getKeyCode() == KeyEvent.VK_SHIFT) shiftDown = true;
-        repaint();
+        switch (e.getKeyCode()) {
+            case KeyEvent.VK_G -> toggleGrid();
+            case KeyEvent.VK_OPEN_BRACKET -> { placementSnap = Math.max(MIN_SNAP, placementSnap / 2); repaint(); }
+            case KeyEvent.VK_CLOSE_BRACKET -> { placementSnap = Math.min(MAX_SNAP, placementSnap * 2); repaint(); }
+            // Numpad +/-
+            case KeyEvent.VK_ADD -> { placementSnap = Math.min(MAX_SNAP, placementSnap + 1); repaint(); }
+            case KeyEvent.VK_SUBTRACT -> { placementSnap = Math.max(MIN_SNAP, placementSnap - 1); repaint(); }
+            // บางคีย์บอร์ดส่ง VK_EQUALS เมื่อกด Shift+'=' (เราดักใน keyTyped อยู่แล้ว)
+            case KeyEvent.VK_ALT -> altDown = true;
+            case KeyEvent.VK_CONTROL -> ctrlDown = true;
+            case KeyEvent.VK_SHIFT -> shiftDown = true;
+        }
     }
+
     @Override public void keyReleased(KeyEvent e) {
-        if (e.getKeyCode() == KeyEvent.VK_ALT) altDown = false;
-        if (e.getKeyCode() == KeyEvent.VK_CONTROL) ctrlDown = false;
-        if (e.getKeyCode() == KeyEvent.VK_SHIFT) shiftDown = false;
-        repaint();
+        switch (e.getKeyCode()) {
+            case KeyEvent.VK_ALT -> altDown = false;
+            case KeyEvent.VK_CONTROL -> ctrlDown = false;
+            case KeyEvent.VK_SHIFT -> shiftDown = false;
+        }
     }
 }

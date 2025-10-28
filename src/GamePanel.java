@@ -13,6 +13,8 @@ import sprites.NPCSpriteSheet;
 import map.MapBackground;
 import map.WorldObject;
 import map.CollisionWorld;
+import map.MapData;
+import map.MapIO;
 
 // Quest
 import quest.QuestManager;
@@ -29,7 +31,11 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private static final int WIDTH = 1400;
     private static final int HEIGHT = 800;
 
-    // Map
+    // Asset manifest (ใช้สำหรับ resolve พาธ assets ให้ถูกต้อง)
+    private static final String MANIFEST_JSON = "src/assets/Cute_Fantasy/manifest.files.json";
+    private String assetRoot = "src/assets/Cute_Fantasy"; // fallback ถ้าอ่านจาก manifest ไม่ได้
+
+    // Map (World 1)
     private MapBackground mapBg;
     private int waterTopY;
     private CollisionWorld collisionWorld;
@@ -40,6 +46,11 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private BufferedImage generatedWorldBg = null;
     private GameplayTuning.MapSpec currentMapSpec = null;
     private Rectangle pondRectPx = null; // สี่เหลี่ยมน้ำในพิกเซล
+
+    // World 2 objects (โหลดจากไฟล์แผนที่ของ world 2)
+    private static final String WORLD2_MAP_PATH = "src/assets/maps/map_world2.json"; // ปรับให้ตรงกับไฟล์ที่เซฟจาก Map Editor
+    private final java.util.List<World2Obj> world2Objects = new java.util.ArrayList<>();
+    private final java.util.Map<String, BufferedImage> world2ImageCache = new java.util.HashMap<>();
 
     // Reel
     private ReelMinigame reelMinigame;
@@ -83,6 +94,13 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         addMouseMotionListener(this);
         addMouseListener(this);
 
+        // อ่าน assetRoot จาก manifest
+        String detected = detectAssetRoot(MANIFEST_JSON);
+        if (detected != null && !detected.isEmpty()) {
+            assetRoot = detected;
+        }
+        System.out.println("ℹ️ assetRoot = " + assetRoot);
+
         // load configs (worlds, fish, characters, rods)
         GameplayTuning.loadAll();
 
@@ -109,7 +127,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         loadSpriteSheetLegacyIfAny();
         loadWaveTile();
 
-        mapBg = new MapBackground(WIDTH, HEIGHT, "src/assets/Cute_Fantasy/manifest.files.json");
+        mapBg = new MapBackground(WIDTH, HEIGHT, MANIFEST_JSON);
         waterTopY = mapBg.getWaterTopY();
         collisionWorld = mapBg.getCollisionWorld();
         worldObjects = new ArrayList<>(mapBg.getObjects());
@@ -121,15 +139,45 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         // เตรียมภาพโลกปัจจุบัน (หาก world 1 จะยังใช้ mapBg เดิม)
         refreshWorldVisuals();
 
+        // โหลด objects ของ world 2 ถ้าจำเป็น
+        loadWorld2ObjectsIfNeeded();
+
         new javax.swing.Timer(50, e -> update()).start();
+    }
+
+    private String detectAssetRoot(String manifestPath) {
+        try {
+            File f = resolveFileLoose(manifestPath);
+            if (f == null || !f.exists()) return null;
+            String json = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+            java.util.regex.Matcher mRoot = java.util.regex.Pattern
+                    .compile("\"root\"\\s*:\\s*\"([^\"]+)\"")
+                    .matcher(json);
+            if (mRoot.find()) {
+                String root = mRoot.group(1).replace("\\\\", "\\").replace("\\", "/");
+                if (!root.endsWith("/") && !root.endsWith("\\")) root = root + "/";
+                System.out.println("✅ manifest.root = " + root);
+                return root;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private File resolveFileLoose(String p) {
+        File f0 = new File(p);
+        File f1 = new File("src/" + p);
+        File f2 = new File("./" + p);
+        if (f0.exists()) return f0;
+        if (f1.exists()) return f1;
+        if (f2.exists()) return f2;
+        return null;
     }
 
     private void loadSpriteSheetLegacyIfAny() {
         try {
-            File file = new File("spritesheet.png");
-            if (!file.exists()) file = new File("src/spritesheet.png");
-            if (!file.exists()) file = new File("./src/spritesheet.png");
-            if (file.exists()) {
+            File file = resolveFileLoose("spritesheet.png");
+            if (file == null) file = resolveFileLoose("src/spritesheet.png");
+            if (file != null && file.exists()) {
                 spriteSheet = ImageIO.read(file);
                 System.out.println("✅ โหลด spritesheet สำเร็จจาก: " + file.getAbsolutePath());
             } else {
@@ -142,9 +190,8 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
 
     private void loadWaveTile() {
         try {
-            File f1 = new File("src/assets/waves/water_wave_row_60x30.png");
-            File f2 = new File("src/assets/water_wave_row_60x30.png");
-            File use = f1.exists() ? f1 : (f2.exists() ? f2 : null);
+            File use = resolveFileLoose("src/assets/waves/water_wave_row_60x30.png");
+            if (use == null) use = resolveFileLoose("src/assets/water_wave_row_60x30.png");
             if (use != null) {
                 waveTile = ImageIO.read(use);
                 System.out.println("✅ โหลด wave tile: " + use.getAbsolutePath());
@@ -202,6 +249,8 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
                 boolean blockX = false;
                 if (!centerLake && collisionWorld != null) {
                     blockX = collisionWorld.blocks(feetNextX);
+                } else {
+                    blockX = world2Blocks(feetNextX) || blockX;
                 }
                 boolean outX = feetNextX.x < 0 || (feetNextX.x + feetNextX.width) > worldW;
                 boolean inWaterX = isInWater(feetNextX);
@@ -215,6 +264,8 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
                 boolean blockY = false;
                 if (!centerLake && collisionWorld != null) {
                     blockY = collisionWorld.blocks(feetNextY);
+                } else {
+                    blockY = world2Blocks(feetNextY) || blockY;
                 }
                 boolean outY = feetNextY.y < 0 || (feetNextY.y + feetNextY.height) > worldH;
                 boolean inWaterY = isInWater(feetNextY);
@@ -263,11 +314,9 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private boolean isInWater(Rectangle feetRect) {
         GameplayTuning.WorldParams wp = currentWorld();
         if (wp.map != null && wp.map.centerWater && pondRectPx != null) {
-            // ถือว่า "อยู่ในน้ำ" เมื่อเท้าเข้าไปในบ่อแบบ hard-rect (หดเข้า 4px เพื่อให้ยืนชิดขอบได้)
             Rectangle inside = shrink(pondRectPx, 4);
             return feetRect.intersects(inside);
         } else {
-            // โลกแนวน้ำแนวเส้น (ของเดิม)
             int candidateY = feetRect.y + feetRect.height;
             return candidateY > (waterTopY - FOOT_MARGIN);
         }
@@ -278,7 +327,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         if (wp.map != null && wp.map.centerWater && pondRectPx != null) {
             Rectangle feet = playerFeetAt(px, py);
             Rectangle inside = shrink(pondRectPx, 4);
-            if (feet.intersects(inside)) return false; // อยู่ในน้ำจริง
+            if (feet.intersects(inside)) return false;
             Rectangle near = expand(pondRectPx, 10);
             return feet.intersects(near);
         } else {
@@ -291,7 +340,6 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // วาดโลก
         GameplayTuning.WorldParams wp = currentWorld();
         boolean useCenterLake = wp.map != null && wp.map.centerWater;
 
@@ -302,43 +350,35 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             if (ground != null) g2d.drawImage(ground, 0, 0, null);
         }
 
-        // วาด wave เฉพาะโลก 1 เท่านั้น (World 2 เอาออก)
+        // waves เฉพาะ world 1
         if (!useCenterLake && waveTile != null) {
             for (int i = 0; i < WIDTH; i += waveTile.getWidth()) {
                 g2d.drawImage(waveTile, i, waterTopY, waveTile.getWidth(), waveTile.getHeight(), null);
             }
         }
 
-        // วัตถุ: วาดเฉพาะ world 1
+        int playerFoot = player.y;
+
         if (!useCenterLake) {
             ArrayList<WorldObject> sorted = new ArrayList<>(worldObjects);
             sorted.sort(Comparator.comparingInt(WorldObject::footY));
-            int playerFoot = player.y;
             for (WorldObject o : sorted) if (o.footY() < playerFoot) o.draw(g2d);
             player.draw(g2d, spriteSheet, this);
             for (WorldObject o : sorted) if (o.footY() >= playerFoot) o.draw(g2d);
         } else {
+            drawWorld2Before(g2d, playerFoot);
             player.draw(g2d, spriteSheet, this);
+            drawWorld2After(g2d, playerFoot);
         }
 
-        // วาด overlay ตามสถานะตกปลา
         switch (gameState) {
-            case CASTING:
-                drawCasting(g2d);
-                break;
-            case REELING:
-                drawReeling(g2d);
-                break;
-            case RESULT:
-                drawResult(g2d);
-                break;
-            case INVENTORY:
-                drawInventory(g2d);
-                break;
-            default:
+            case CASTING -> drawCasting(g2d);
+            case REELING -> drawReeling(g2d);
+            case RESULT -> drawResult(g2d);
+            case INVENTORY -> drawInventory(g2d);
+            default -> { }
         }
 
-        // UI มุมซ้ายบน + Quest HUD
         drawUI(g2d);
         questManager.draw(g2d, WIDTH, HEIGHT);
     }
@@ -354,7 +394,6 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         g2d.drawString("กด C: เลือกตัวละคร (NPC) | SPACE: ตกปลา", 220, 35);
         g2d.drawString("World: " + currentWorld().name + " (คลิกกรอบนี้เพื่อสลับ | P เลือก)", 220, 65);
 
-        // แสดงคันเบ็ดปัจจุบัน
         GameplayTuning.RodParams r = currentRod();
         g2d.drawString("Rod: " + (r != null ? r.displayName : "None"), 20, 95);
     }
@@ -631,10 +670,9 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         if (path == null || path.isEmpty()) return null;
         try {
             if (fishImageCache.containsKey(path)) return fishImageCache.get(path);
-            File f1 = new File("src/" + path);
-            File f2 = new File(path);
-            File use = f1.exists() ? f1 : (f2.exists() ? f2 : null);
+            File use = resolveAssetFile(path);
             if (use == null) {
+                System.out.println("⚠️ Fish image not found: " + path);
                 fishImageCache.put(path, null);
                 return null;
             }
@@ -647,25 +685,139 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
         }
     }
 
+    private File resolveAssetFile(String rel) {
+        // ลองตามลำดับ: assetRoot/rel -> src/rel -> rel
+        File f0 = new File(assetRoot, rel);
+        if (f0.exists()) return f0;
+        File f1 = new File("src/" + rel);
+        if (f1.exists()) return f1;
+        File f2 = new File(rel);
+        if (f2.exists()) return f2;
+        return null;
+    }
+
+    // --- World 2 object support ---
+
+    private static final class World2Obj {
+        String src;
+        int x, y;
+        boolean collide = true;
+        int footH = 16;
+    }
+
+    private void loadWorld2ObjectsIfNeeded() {
+        GameplayTuning.WorldParams wp = currentWorld();
+        boolean centerLake = (wp != null && wp.map != null && wp.map.centerWater);
+        world2Objects.clear();
+        world2ImageCache.clear();
+        if (!centerLake) return;
+
+        try {
+            File f = resolveFileLoose(WORLD2_MAP_PATH);
+            if (f == null || !f.exists()) {
+                System.out.println("⚠️ World2 map not found at: " + WORLD2_MAP_PATH);
+                return;
+            }
+            String txt = java.nio.file.Files.readString(f.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+            MapData data = MapIO.fromJson(txt);
+            if (data == null || data.objects == null) return;
+
+            for (MapData.MapObject o : data.objects) {
+                if (o == null || o.src == null || o.src.isEmpty()) continue;
+                World2Obj w = new World2Obj();
+                w.src = o.src;
+                w.x = o.x;
+                w.y = o.y;
+                w.collide = o.collide;
+                w.footH = o.footH;
+                world2Objects.add(w);
+            }
+            System.out.println("✅ World 2 objects loaded: " + world2Objects.size());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private boolean world2Blocks(Rectangle feetRect) {
+        for (World2Obj o : world2Objects) {
+            BufferedImage img = loadWorld2Image(o.src);
+            Rectangle cr = world2Collider(o, img);
+            if (cr != null && cr.intersects(feetRect)) return true;
+        }
+        return false;
+    }
+
+    private void drawWorld2Before(Graphics2D g2d, int playerFootY) {
+        java.util.List<World2Obj> list = new ArrayList<>(world2Objects);
+        list.sort(Comparator.comparingInt(o -> world2FootY(o, loadWorld2Image(o.src))));
+        for (World2Obj o : list) {
+            BufferedImage img = loadWorld2Image(o.src);
+            if (world2FootY(o, img) < playerFootY) drawWorld2One(g2d, o, img);
+        }
+    }
+
+    private void drawWorld2After(Graphics2D g2d, int playerFootY) {
+        java.util.List<World2Obj> list = new ArrayList<>(world2Objects);
+        list.sort(Comparator.comparingInt(o -> world2FootY(o, loadWorld2Image(o.src))));
+        for (World2Obj o : list) {
+            BufferedImage img = loadWorld2Image(o.src);
+            if (world2FootY(o, img) >= playerFootY) drawWorld2One(g2d, o, img);
+        }
+    }
+
+    private void drawWorld2One(Graphics2D g2d, World2Obj o, BufferedImage img) {
+        if (img != null) {
+            g2d.drawImage(img, o.x, o.y, null);
+        } else {
+            g2d.setColor(new Color(0,0,0,120));
+            g2d.fillRect(o.x, o.y, 64, 64);
+            g2d.setColor(Color.WHITE);
+            g2d.drawRect(o.x, o.y, 64, 64);
+        }
+    }
+
+    private int world2FootY(World2Obj o, BufferedImage img) {
+        int h = (img != null ? img.getHeight() : 64);
+        return o.y + h;
+    }
+
+    private Rectangle world2Collider(World2Obj o, BufferedImage img) {
+        if (!o.collide) return null;
+        int w = (img != null ? img.getWidth() : 64);
+        int h = (img != null ? img.getHeight() : 64);
+        int fh = Math.max(4, o.footH);
+        return new Rectangle(o.x, o.y + h - fh, Math.max(4, w), fh);
+    }
+
+    private BufferedImage loadWorld2Image(String src) {
+        if (src == null || src.isEmpty()) return null;
+        try {
+            if (world2ImageCache.containsKey(src)) return world2ImageCache.get(src);
+            File use = resolveAssetFile(src);
+            if (use == null) {
+                System.out.println("⚠️ World2 image not found: " + src + " (assetRoot=" + assetRoot + ")");
+                world2ImageCache.put(src, null);
+                return null;
+            }
+            BufferedImage img = ImageIO.read(use);
+            world2ImageCache.put(src, img);
+            return img;
+        } catch (Exception e) {
+            world2ImageCache.put(src, null);
+            return null;
+        }
+    }
+
     // --- Key / Mouse handlers ---
     @Override public void keyPressed(KeyEvent e) {
         keysPressed.add(e.getKeyCode());
         if (e.getKeyCode() == KeyEvent.VK_SPACE) {
             switch (gameState) {
-                case EXPLORATION:
-                    startFishing();
-                    break;
-                case CASTING:
-                    break;
-                case SNAG:
-                    break;
-                case RESULT:
-                case INVENTORY:
-                    gameState = GameState.EXPLORATION;
-                    break;
-                case REELING:
-                    if (reelMinigame != null) reelMinigame.press();
-                    break;
+                case EXPLORATION -> startFishing();
+                case CASTING -> { }
+                case SNAG -> { }
+                case RESULT, INVENTORY -> gameState = GameState.EXPLORATION;
+                case REELING -> { if (reelMinigame != null) reelMinigame.press(); }
             }
         }
         if (e.getKeyCode() == KeyEvent.VK_I && gameState == GameState.EXPLORATION) {
@@ -736,9 +888,7 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
 
     private void openWorldSelectDialog() {
         Window owner = SwingUtilities.getWindowAncestor(this);
-        WorldSelectDialog dlg = new WorldSelectDialog(owner, id -> {
-            switchWorld(id);
-        });
+        WorldSelectDialog dlg = new WorldSelectDialog(owner, this::switchWorld);
         dlg.setLocationRelativeTo(this);
         dlg.setVisible(true);
     }
@@ -749,7 +899,10 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
 
         refreshWorldVisuals();
 
-        // ตั้งตำแหน่งเกิดคร่าวๆ: ถ้า world แบบบ่อน้ำกลาง ให้ไปยืนซ้ายของบ่อ
+        // โหลด/ล้าง objects world 2 ตามโลกใหม่
+        loadWorld2ObjectsIfNeeded();
+
+        // ตั้งตำแหน่งเกิดคร่าวๆ
         GameplayTuning.WorldParams wp = currentWorld();
         if (wp.map != null && wp.map.centerWater && pondRectPx != null) {
             player.x = pondRectPx.x - 40;
@@ -765,60 +918,61 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     }
 
     // สร้างภาพฉากและสี่เหลี่ยมน้ำของ world ปัจจุบัน
-    private void refreshWorldVisuals() {
-        GameplayTuning.WorldParams wp = currentWorld();
-        currentMapSpec = (wp != null) ? wp.map : null;
+private void refreshWorldVisuals() {
+    GameplayTuning.WorldParams wp = currentWorld();
+    currentMapSpec = (wp != null) ? wp.map : null;
+    pondRectPx = null;
+
+    if (currentMapSpec != null && currentMapSpec.centerWater) {
+        // แปลความหมาย waterRadius = จำนวน tiles
+        final int TILE_SIZE_PX = 64;
+        final int halfPx = Math.max(TILE_SIZE_PX, currentMapSpec.waterRadius * TILE_SIZE_PX);
+
+        // สร้างพื้นหลังโลก 2 + บ่อน้ำกลางจอ
+        BufferedImage img = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+
+        g.setColor(new Color(60, 140, 60)); // ground
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
+        int cx = WIDTH / 2;
+        int cy = HEIGHT / 2;
+        int wx = cx - halfPx;
+        int wy = cy - (int) Math.round(halfPx * 0.8);
+        int ww = halfPx * 2;
+        int wh = (int) Math.round(halfPx * 1.6);
+
+        g.setColor(new Color(26, 168, 208));
+        g.fillRect(wx, wy, ww, wh);
+        g.setColor(new Color(255, 255, 255, 90));
+        g.drawRect(wx, wy, ww, wh);
+
+        g.dispose();
+        generatedWorldBg = img;
+
+        pondRectPx = new Rectangle(wx, wy, ww, wh);
+
+        // ปิดคอลลิชัน/ออบเจ็กต์ของ world 1 ในโหมด world 2
+        collisionWorld = null;
+        worldObjects = new ArrayList<>();
+        worldW = WIDTH;
+        worldH = HEIGHT;
+
+        // debug เพื่อเช็คว่าค่าอ่านเข้ามาถูก
+        System.out.println("World " + currentWorldId + " centerWater=true, waterRadius(tiles)="
+                + currentMapSpec.waterRadius + ", halfPx=" + halfPx);
+    } else {
+        generatedWorldBg = null;
         pondRectPx = null;
 
-        if (currentMapSpec != null && currentMapSpec.centerWater) {
-            // วาดพื้นดิน + บ่อน้ำ "สี่เหลี่ยม" ตรงกลาง ด้วยโทนน้ำคล้าย world 1 (ไม่มี wave)
-            BufferedImage img = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = img.createGraphics();
-
-            // พื้นดิน
-            g.setColor(new Color(60, 140, 60));
-            g.fillRect(0, 0, WIDTH, HEIGHT);
-
-            // ขนาดสี่เหลี่ยมน้ำ (สเกลจาก waterRadius)
-            int half = Math.max(40, Math.min(Math.min(WIDTH, HEIGHT) / 3, currentMapSpec.waterRadius * 18));
-            int cx = WIDTH / 2;
-            int cy = HEIGHT / 2;
-            int wx = cx - half;
-            int wy = cy - (int)(half * 0.8);
-            int ww = half * 2;
-            int wh = (int)(half * 1.6);
-
-            // เติมพื้นน้ำสีฟ้า
-            g.setColor(new Color(26, 168, 208));
-            g.fillRect(wx, wy, ww, wh);
-
-            // ขอบเส้นน้ำ (บาง)
-            g.setColor(new Color(255, 255, 255, 90));
-            g.drawRect(wx, wy, ww, wh);
-
-            g.dispose();
-            generatedWorldBg = img;
-
-            // กรอบบ่อเพื่อใช้ชน/ตรวจใกล้น้ำ
-            pondRectPx = new Rectangle(wx, wy, ww, wh);
-
-            // ปิด collision/objects ของ world 1 และตั้งขอบเขตเป็นขนาดจอ
-            collisionWorld = null;
-            worldObjects = new ArrayList<>();
-            worldW = WIDTH;
-            worldH = HEIGHT;
-        } else {
-            generatedWorldBg = null;
-            pondRectPx = null;
-
-            // โหลดจาก MapBackground เดิม
-            waterTopY = mapBg.getWaterTopY();
-            collisionWorld = mapBg.getCollisionWorld();
-            worldObjects = new ArrayList<>(mapBg.getObjects());
-            worldW = mapBg.getWorldWidth();
-            worldH = mapBg.getWorldHeight();
-        }
+        // world 1: ใช้จาก MapBackground ตามเดิม
+        waterTopY = mapBg.getWaterTopY();
+        collisionWorld = mapBg.getCollisionWorld();
+        worldObjects = new ArrayList<>(mapBg.getObjects());
+        worldW = mapBg.getWorldWidth();
+        worldH = mapBg.getWorldHeight();
     }
+}
 
     // -------- Fishing flow --------
     private void startFishing() {

@@ -6,7 +6,6 @@ public class FishingSequence {
     public int castTimeRemaining;   // ms เหลือ
     public final Fish caughtFish;
 
-    // tick ขนาด 50ms ตาม Timer ใน GamePanel
     private static final int TICK_MS = 50;
 
     public FishingSequence(Fish fish, int castTimeMs) {
@@ -28,8 +27,6 @@ public class FishingSequence {
                 phase = FishingPhase.REELING;
             }
         } else if (phase == FishingPhase.REELING) {
-            // ควบคุมโดย GamePanel + ReelMinigame
-            // เมื่อ reelingFinished = true, GamePanel จะตั้งค่า success แล้วไป RESULT
         }
     }
 }
