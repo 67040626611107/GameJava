@@ -58,10 +58,7 @@ public class WaveAssetGenerator {
         return img;
     }
 
-    /**
-     * สร้างไทล์ลอนสำหรับปูแนวนอน (tile)
-     * - ขนาดแนะนำ 60x30 เพื่อให้ต่อกับความถี่ลอนเดิม
-     */
+
     public static BufferedImage createWaveTile(int tileW, int tileH, int waveW, int waveH,
                                                int strokePx, int alpha, Color crestColor) {
         BufferedImage img = new BufferedImage(tileW, tileH, BufferedImage.TYPE_INT_ARGB);

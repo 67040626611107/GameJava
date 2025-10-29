@@ -4,7 +4,7 @@
       "id": "common_carp",
       "displayName": "Common Carp",
       "basePrice": 20,
-      "imagePath": "assets/fish/common_carp.png",
+      "imagePath": "ssets/fish/common crap.png",
       "difficulty": {
         "reelRateMul": 1.0,
         "wiggleMul": 1.0,
@@ -15,12 +15,24 @@
       "id": "electric_eel",
       "displayName": "Electric Eel",
       "basePrice": 120,
-      "imagePath": null,
+      "imagePath": "assets/fish/electric_eel.png",
       "difficulty": {
         "reelRateMul": 0.8,
         "wiggleMul": 1.4,
         "biteSpeedMul": 1.2
       }
+    },{
+
+      "id": "duck_king",
+      "displayName": "Duck Kings",
+      "basePrice": 500,
+      "imagePath": "assets/fish/Duck Pro.png",
+      "difficulty": {
+        "reelRateMul": 0.8,
+        "wiggleMul": 5.4,
+        "biteSpeedMul": 1.2
+      }
     }
+
   ]
 }

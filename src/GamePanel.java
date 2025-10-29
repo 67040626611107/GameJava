@@ -975,7 +975,7 @@ private void refreshWorldVisuals() {
                 if (fishingSequence.success) {
                     if (caughtFish == null) caughtFish = new ArrayList<>();
                     caughtFish.add(fishingSequence.caughtFish);
-                    player.addMoney(fishingSequence.caughtFish.price);
+                     // player.addMoney(fishingSequence.caughtFish.price);
                     questManager.onFishCaught(fishingSequence.caughtFish.name, fishingSequence.caughtFish.golden);
                     java.util.List<quest.QuestManager.GoalPayout> pays = questManager.collectNewPayouts();
                     for (quest.QuestManager.GoalPayout p : pays) if (p.money > 0) player.addMoney(p.money);
