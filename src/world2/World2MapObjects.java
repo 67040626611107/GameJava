@@ -11,9 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 
-/**
- * ตัวโหลด/วาด/ชน Objects ของ World 2 จากไฟล์ map (เช่น src/assets/maps/map_world2.json)
- */
+
 public class World2MapObjects {
 
     public static class Obj {

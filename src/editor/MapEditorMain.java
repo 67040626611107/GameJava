@@ -11,11 +11,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * เปิด Map Editor ตาม world ที่เลือกจาก resources/config/worlds.json
- * - ผูก centerWater overlay ให้ World 2
- * - บังคับ path ต่อโลก เพื่อไม่สลับไปไฟล์ World 2 เมื่อเลือก World 1
- */
+
 public class MapEditorMain {
 
     private static final String MANIFEST_PATH = "src/assets/Cute_Fantasy/manifest.files.json";
@@ -237,7 +233,7 @@ public class MapEditorMain {
             data.height = tilesH * data.tileSize;
 
             if (w.centerWater) {
-                data.waterTopY = data.height + 100; // move off-screen in editor; overlay handles visual
+                data.waterTopY = data.height + 100; 
             } else {
                 int wr = (w.waterRadius != null ? w.waterRadius : 6);
                 int approx = (int) Math.round(wr * data.tileSize * 0.8);

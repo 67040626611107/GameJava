@@ -26,13 +26,11 @@ public class FishingGame extends JFrame implements CharacterSelectPanel.Listener
         setLocationRelativeTo(null);
         setVisible(true);
 
-        // เริ่มที่หน้าเลือกตัวละคร
         cards.show(mainPanel, "select");
     }
 
     @Override
     public void onCharacterSelected(CharacterConfig cfg) {
-        // สลับไปหน้าเกมและคืนโฟกัสให้ GamePanel
         cards.show(mainPanel, "game");
         SwingUtilities.invokeLater(() -> gamePanel.requestFocusInWindow());
     }

@@ -8,7 +8,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-// เลี่ยง import java.awt.* เพื่อไม่ให้ List ชนกับ java.util.List
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -20,15 +19,12 @@ public class QuestManager {
     private QuestDef def;
     private final QuestProgress progress = new QuestProgress();
 
-    // กันจ่ายซ้ำ
     private final Set<String> paidGoals = new HashSet<>();
 
-    // UI state
     private final Rectangle panelBounds = new Rectangle();
     private final Rectangle toggleBounds = new Rectangle();
     private boolean collapsed = false;
 
-    // จ่ายรางวัล
     public static class GoalPayout {
         public final String goalId;
         public final int money;
@@ -38,7 +34,6 @@ public class QuestManager {
         }
     }
 
-    // โหลด quests.json
     @SuppressWarnings("unchecked")
     public void load(String path) {
         String json = readAll(path);
@@ -73,7 +68,6 @@ public class QuestManager {
     public QuestDef getDef() { return def; }
     public QuestProgress getProgress() { return progress; }
 
-    // ใช้ primitive เพื่อเลี่ยงอ้าง default package
     public void onFishCaught(String fishName, boolean golden) {
         if (def == null) return;
         for (QuestModels.GoalDef g : def.goals) {
@@ -98,11 +92,9 @@ public class QuestManager {
         return list;
     }
 
-    // วาด HUD ด้านขวาล่าง + สเกลอัตโนมัติ + ตัดบรรทัดอัตโนมัติเมื่อข้อความยาว
     public void draw(Graphics2D g2d, int screenW, int screenH) {
         if (def == null) return;
 
-        // scale เทียบฐาน 1400x800
         double sW = screenW / 1400.0;
         double sH = screenH / 800.0;
         double s = Math.min(sW, sH);
@@ -120,15 +112,12 @@ public class QuestManager {
 
         int anchorY = (int) (screenH * 0.815) - round(10 * s);
 
-        // ขนาด toggle และ gutter ในแผง
         int toggleW = clamp(round(24 * s), 18, 36);
         int gap = clamp(round(6 * s), 4, 12);
         int gutterW = toggleW + gap;
 
-        // ความกว้างพื้นที่ "ข้อความ" ภายในแผง (ด้านขวาของปุ่ม + padding ขวา)
         int contentWidth = width - pad - gutterW - pad;
 
-        // เตรียมวัดฟอนต์
         g2d.setFont(goalFont);
         FontMetrics goalFM = g2d.getFontMetrics();
         int checkSize = clamp(round(18 * s), 12, 28);
@@ -137,18 +126,14 @@ public class QuestManager {
         int afterTitleSpace = clamp(round(8 * s), 6, 12);
         int betweenGoals = clamp(round(6 * s), 4, 10);
 
-        // คำนวณความสูงจาก "จำนวนบรรทัดจริง" ของทุก goal
-        int contentH = pad; // top pad
-        // สูงส่วน title
+        int contentH = pad;
         g2d.setFont(titleFont);
         FontMetrics titleFM = g2d.getFontMetrics();
         int titleHeight = titleFM.getAscent();
         contentH += titleHeight + afterTitleSpace;
 
-        // ความกว้างพื้นที่ข้อความต่อบรรทัด (ต้องหัก checkbox + ช่องว่าง)
         int perLineTextWidth = Math.max(20, contentWidth - checkSize - textGap);
 
-        // เก็บผล wrap เพื่อใช้ตอนวาดจริง (เลี่ยงคำนวณซ้ำ)
         List<List<String>> wrappedPerGoal = new ArrayList<>();
         List<Integer> blockHeights = new ArrayList<>();
 
@@ -160,12 +145,10 @@ public class QuestManager {
             blockHeights.add(blockH);
             contentH += blockH + betweenGoals;
         }
-        contentH += pad; // bottom pad
+        contentH += pad; 
 
-        // คำนวณตำแหน่งแนวตั้งแผง
         int yTop = anchorY - contentH;
 
-        // โหมดพับ: ปุ่มชิดขวาจอ ความสูง = contentH ตรงกับแผงตอนกาง
         if (collapsed) {
             panelBounds.setBounds(screenW, yTop, width, contentH);
             int toggleX = screenW - toggleW;
@@ -180,7 +163,6 @@ public class QuestManager {
             g2d.setColor(new Color(255, 255, 255, 140));
             g2d.drawRoundRect(toggleBounds.x, toggleBounds.y, toggleBounds.width, toggleBounds.height, radius, radius);
 
-            // ลูกศรซ้าย (กางออก)
             int cx = toggleBounds.x + toggleBounds.width / 2;
             int cy = toggleBounds.y + toggleBounds.height / 2;
             Polygon leftArrow = new Polygon();
@@ -192,7 +174,6 @@ public class QuestManager {
             return;
         }
 
-        // โหมดเปิด: วาดแผง + ปุ่มซ้ายในแผง + เนื้อหา wrap แล้ว
         int xExpanded = (int) (screenW * 0.985) - width;
         panelBounds.setBounds(xExpanded, yTop, width, contentH);
 
@@ -202,7 +183,6 @@ public class QuestManager {
         g2d.setColor(new Color(255, 255, 255, 180));
         g2d.drawRoundRect(panelBounds.x, panelBounds.y, panelBounds.width, panelBounds.height, radius, radius);
 
-        // ปุ่ม toggle ในแผง (ซ้ายสุด)
         int toggleX = panelBounds.x;
         int toggleY = panelBounds.y;
         toggleBounds.setBounds(toggleX, toggleY, toggleW, contentH);
@@ -212,7 +192,6 @@ public class QuestManager {
         g2d.setColor(new Color(255, 255, 255, 160));
         g2d.drawRoundRect(toggleBounds.x, toggleBounds.y, toggleBounds.width, toggleBounds.height, radius, radius);
 
-        // ลูกศรขวา (พับออกไปทางขวา)
         int arrowSize = clamp(round(6 * s), 4, 10);
         int cx = toggleBounds.x + toggleBounds.width / 2;
         int cy = toggleBounds.y + toggleBounds.height / 2;
@@ -223,30 +202,25 @@ public class QuestManager {
         g2d.setColor(new Color(255, 255, 255, 200));
         g2d.fillPolygon(rightArrow);
 
-        // ตำแหน่งเริ่มเนื้อหา
         int contentX = panelBounds.x + pad + gutterW;
         int textX = contentX + checkSize + textGap;
 
-        // วาด Title
         g2d.setFont(titleFont);
         g2d.setColor(new Color(230, 230, 230));
         g2d.drawString(def.title, contentX, panelBounds.y + pad + titleFM.getAscent());
 
-        // วาด Goals ที่ถูก wrap
         g2d.setFont(goalFont);
         int yCursor = panelBounds.y + pad + titleHeight + afterTitleSpace;
         for (int idx = 0; idx < def.goals.size(); idx++) {
             List<String> lines = wrappedPerGoal.get(idx);
             int blockH = blockHeights.get(idx);
 
-            // checkbox จัดตรงกลางบล็อคแนวตั้ง
             int checkY = yCursor + Math.max(0, (blockH - checkSize) / 2);
             g2d.setColor(progress.isCompleted(def.goals.get(idx).id)
                     ? new Color(125, 255, 50, 200)
                     : new Color(255, 255, 255, 80));
             g2d.fillRoundRect(contentX, checkY, checkSize, checkSize, clamp(round(6 * s), 4, 10), clamp(round(6 * s), 4, 10));
 
-            // วาดทุกบรรทัดของข้อความ
             g2d.setColor(Color.WHITE);
             int lineY = yCursor + goalFM.getAscent();
             for (String ln : lines) {
@@ -320,7 +294,6 @@ public class QuestManager {
     private static int round(double v) { return (int)Math.round(v); }
     private static int clamp(int v, int lo, int hi) { return Math.max(lo, Math.min(hi, v)); }
 
-    // สร้างข้อความเต็มของ goal รวม progress และ reward annotation
     private String buildGoalText(QuestModels.GoalDef g) {
         int cur = progress.get(g.id);
         String base = g.text;
@@ -337,7 +310,6 @@ public class QuestManager {
         return base;
     }
 
-    // ตัดบรรทัดตามความกว้างที่ให้, รองรับคำยาวเกินบรรทัดด้วยการผ่าเป็นช่วงๆ
     private static List<String> wrapText(String text, FontMetrics fm, int maxWidth) {
         List<String> lines = new ArrayList<>();
         if (text == null || text.isEmpty()) {
@@ -352,17 +324,16 @@ public class QuestManager {
                 cur.setLength(0);
                 cur.append(candidate);
             } else {
-                // ถ้าใส่คำใหม่แล้วล้น: ปิดบรรทัดปัจจุบันก่อน
                 if (cur.length() > 0) {
                     lines.add(cur.toString());
                     cur.setLength(0);
                 }
-                // ถ้าคำเดี่ยวๆ ยาวเกิน maxWidth ให้หั่นตัวอักษร
+
                 if (fm.stringWidth(w) > maxWidth) {
                     int start = 0;
                     while (start < w.length()) {
                         int end = start + 1;
-                        // ขยายจนกว่าจะล้น
+
                         while (end <= w.length() && fm.stringWidth(w.substring(start, end)) <= maxWidth) {
                             end++;
                         }
@@ -371,8 +342,7 @@ public class QuestManager {
                         lines.add(w.substring(start, end));
                         start = end;
                     }
-                } else {
-                    // เริ่มบรรทัดใหม่ด้วยคำนี้
+
                     cur.append(w);
                 }
             }

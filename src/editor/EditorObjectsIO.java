@@ -38,7 +38,6 @@ public final class EditorObjectsIO {
         }
     }
 
-    // --------------- JSON (ง่ายๆ) ---------------
 
     private static java.util.List<EditorObject> parseObjects(String json) {
         ArrayList<EditorObject> out = new ArrayList<>();

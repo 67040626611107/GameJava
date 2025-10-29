@@ -19,11 +19,9 @@ public class ReelMinigame {
     private boolean finished = false;
     private boolean success = false;
 
-    // เหมือนเดิม: กดค้างเพื่อดันแถบ, ปล่อยให้ไหลย้อน
     public void press()  { dir = +1; }
     public void release(){ dir = -1; }
 
-    // พารามิเตอร์ความยาก/สมดุล
     public void setResilience(double resilience) { this.res = Math.max(0.2, resilience); }
     public void setProgressEfficiency(double efficiency) { this.progressEfficiency = Math.max(0.1, efficiency); }
     public void setControlWidth(double widthFraction) { this.controlWidth = clamp(0.2, 0.9, widthFraction); }
@@ -33,12 +31,10 @@ public class ReelMinigame {
     public void update(double dtSeconds, double barPixelWidth) {
         if (finished) return;
 
-        // 1) Move player window จากการกด/ปล่อย
         vel = clamp(-VMAX, VMAX, vel + dir * accel * dtSeconds * 60.0);
         double half = controlWidth / 2.0;
         playerBarX = clamp(half, 1.0 - half, playerBarX + vel * 0.001 * dtSeconds * 60.0);
 
-        // 2) Fish movement (สุ่มเป้าหมาย/คูลดาวน์, ปรับด้วย res และ movementFactor)
         fishCooldown -= dtSeconds;
         if (fishCooldown <= 0.0) {
             double delta = randRange(-0.32, 0.32);
@@ -49,7 +45,6 @@ public class ReelMinigame {
         double t = clamp(0, 1, 0.08 * dtSeconds * 60.0 / clamp(0.8, 1.4, res));
         fishX = lerp(fishX, fishTargetX, t);
 
-        // 3) Progress update (ซ้อนทับเพิ่ม ลดเมื่อหลุด)
         double fishWidthNorm = 8.0 / Math.max(1.0, barPixelWidth);
         boolean overlap = overlaps(playerBarX, controlWidth, fishX, fishWidthNorm);
         if (overlap) {

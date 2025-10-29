@@ -10,9 +10,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
-/**
- * หน้าต่างหลักของ Map Editor
- */
+
 public class MapEditorFrame extends JFrame {
 
     private final String manifestPath;
@@ -42,7 +40,6 @@ public class MapEditorFrame extends JFrame {
         loadIfExists();
     }
 
-    // (ใหม่) เผย CanvasPanel สำหรับตั้งค่า overlay จากภายนอก
     public CanvasPanel getCanvas() {
         return canvas;
     }

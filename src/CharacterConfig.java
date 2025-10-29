@@ -3,9 +3,8 @@ public class CharacterConfig {
     public final int col;
     public final int row;
 
-    // รองรับไฟล์สไปรต์ NPC
-    public final String npcSpritePath; // เช่น "src/assets/Cute_Fantasy/NPCs (Premade)/Fisherman_Fin.png"
-    public final int npcCell;          // ขนาดเฟรม (ปกติ 64)
+    public final String npcSpritePath; 
+    public final int npcCell;          
 
     public CharacterConfig(String displayName, int col, int row) {
         this.displayName = displayName;

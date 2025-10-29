@@ -6,14 +6,14 @@ public class QuestModels {
     public static class GoalDef {
         public String id;
         public String text;
-        public String type;     // e.g., "catch_count"
+        public String type;    
         public String filter;   // e.g., "any", "rarity:golden", "name:Carp"
         public int target;
         public boolean optional;
 
         // per-goal rewards
-        public int rewardMoney;      // money to grant on completion
-        public String rewardText;    // optional display text for reward
+        public int rewardMoney;      
+        public String rewardText;   
     }
 
     public static class QuestDef {

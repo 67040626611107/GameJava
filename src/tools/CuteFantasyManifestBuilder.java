@@ -8,18 +8,7 @@ import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
-/**
- * CuteFantasyManifestBuilder
- *
- * ใช้สแกนโฟลเดอร์ src/assets/Cute_Fantasy บนเครื่องคุณ
- * แล้วสร้าง:
- *  - src/assets/Cute_Fantasy/manifest.files.json     (ไฟล์ทั้งหมดแบบจัดกลุ่ม)
- *  - src/assets/Cute_Fantasy/manifest.suggested.json (คีย์ที่แนะนำสำหรับฉาก ถ้าหาเจอจากชื่อไฟล์)
- *
- * วิธีรัน (จากรูทโปรเจกต์):
- *   javac -d out src/tools/CuteFantasyManifestBuilder.java
- *   java -cp out tools.CuteFantasyManifestBuilder
- */
+
 public class CuteFantasyManifestBuilder {
 
     private static final String ROOT = "src/assets/Cute_Fantasy";
@@ -57,12 +46,10 @@ public class CuteFantasyManifestBuilder {
 
         files.sort(Comparator.comparing(f -> f.rel));
 
-        // เขียน manifest.files.json (ครบทุกไฟล์)
         String filesJson = buildFilesJson(files, byDir);
         writeText(ROOT + "/manifest.files.json", filesJson);
         System.out.println("✅ Wrote: " + ROOT + "/manifest.files.json");
 
-        // เขียน manifest.suggested.json (คีย์แนะนำสำหรับฉาก หากจับจากชื่อไฟล์ได้)
         Map<String,String> suggested = suggestSceneKeys(files);
         String suggestedJson = buildSuggestedJson(suggested);
         writeText(ROOT + "/manifest.suggested.json", suggestedJson);
@@ -136,7 +123,6 @@ public class CuteFantasyManifestBuilder {
     }
 
     private static Map<String,String> suggestSceneKeys(List<FileEntry> files) {
-        // จับชื่อไฟล์ยอดนิยมสำหรับฉากพื้นฐานตาม pattern ชื่อไฟล์
         Map<String,String> out = new LinkedHashMap<>();
         out.put("grass", findFirst(files, Arrays.asList("grass", "ground_grass", "tile_grass")));
         out.put("sand",  findFirst(files, Arrays.asList("sand", "beach")));
@@ -149,7 +135,6 @@ public class CuteFantasyManifestBuilder {
         out.put("house", findFirst(files, Arrays.asList("house","home","hut")));
         out.put("dock",  findFirst(files, Arrays.asList("dock","pier","bridge")));
 
-        // กรอง null ออก
         out.entrySet().removeIf(e -> e.getValue() == null);
         return out;
     }

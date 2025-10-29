@@ -38,18 +38,15 @@ import java.util.Map;
 
 import sprites.NPCSpriteSheet;
 
-/**
- * หน้าจอเลือกตัวละครแบบมีรูปตัวอย่าง (Preview) และ thumbnail ในรายการ
- */
+
 public class CharacterSelectPanel extends JPanel {
 
-    // ทำ callback ให้ frame สลับหน้าได้
     public interface Listener {
         void onCharacterSelected(CharacterConfig cfg);
     }
 
     private final GamePanel gamePanel;
-    private final Listener listener; // อาจเป็น null ได้ (กรณีเปิดแบบ dialog)
+    private final Listener listener; 
 
     private final DefaultListModel<String> npcModel = new DefaultListModel<>();
     private final JList<String> npcList = new JList<>(npcModel);
@@ -68,12 +65,10 @@ public class CharacterSelectPanel extends JPanel {
     private Timer previewTimer;
     private WindowAdapter windowFocusRestorer;
 
-    // คอนสตรัคเตอร์เดิม (โหมด dialog)
     public CharacterSelectPanel(GamePanel gamePanel) {
         this(gamePanel, null);
     }
 
-    // คอนสตรัคเตอร์รองรับ Listener (ใช้กับ CardLayout)
     public CharacterSelectPanel(GamePanel gamePanel, Listener listener) {
         this.gamePanel = gamePanel;
         this.listener = listener;
@@ -83,24 +78,20 @@ public class CharacterSelectPanel extends JPanel {
         top.add(hint, BorderLayout.WEST);
         add(top, BorderLayout.NORTH);
 
-        // รายการ NPC (ซ้าย)
         npcList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         npcList.setCellRenderer(new NPCItemRenderer());
         JScrollPane leftScroll = new JScrollPane(npcList);
         leftScroll.setPreferredSize(new Dimension(260, 360));
 
-        // พรีวิว (ขวา)
         JPanel right = new JPanel(new BorderLayout());
         right.add(previewPanel, BorderLayout.CENTER);
         previewPanel.setPreferredSize(new Dimension(360, 360));
 
-        // ส่วนกลาง
         JPanel center = new JPanel(new BorderLayout(8, 8));
         center.add(leftScroll, BorderLayout.WEST);
         center.add(right, BorderLayout.CENTER);
         add(center, BorderLayout.CENTER);
 
-        // ปุ่มกดใช้งาน
         JPanel bottom = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT));
         bottom.add(useBtn);
         add(bottom, BorderLayout.SOUTH);
@@ -108,7 +99,6 @@ public class CharacterSelectPanel extends JPanel {
         loadNPCs();
         if (!npcModel.isEmpty()) npcList.setSelectedIndex(0);
 
-        // events
         useBtn.addActionListener(this::onUse);
         npcList.addListSelectionListener(this::onSelectionChanged);
     }
@@ -116,12 +106,10 @@ public class CharacterSelectPanel extends JPanel {
     @Override
     public void addNotify() {
         super.addNotify();
-        // เริ่ม timer พรีวิวเมื่อ panel ถูกใส่ใน window
         if (previewTimer == null) {
             previewTimer = new Timer(120, e -> previewPanel.repaint());
             previewTimer.start();
         }
-        // คืนโฟกัสให้ GamePanel เมื่อปิดหน้าต่าง (เฉพาะโหมด dialog)
         Window w = SwingUtilities.getWindowAncestor(this);
         if (w != null && windowFocusRestorer == null) {
             windowFocusRestorer = new WindowAdapter() {
@@ -153,7 +141,6 @@ public class CharacterSelectPanel extends JPanel {
         for (String f : files) npcModel.addElement(f);
     }
 
-    // ใส่เมธอดที่หายไป กลับมา
     private List<String> listPNG(String dir) {
         List<String> out = new ArrayList<>();
         File d = new File(dir);
@@ -179,11 +166,9 @@ public class CharacterSelectPanel extends JPanel {
             CharacterConfig cfg = new CharacterConfig(name, path, NPC_CELL);
             gamePanel.setCharacter(cfg);
 
-            // ถ้ามี listener (CardLayout flow) ให้สลับไปหน้าเกม
             if (listener != null) {
                 listener.onCharacterSelected(cfg);
             } else {
-                // โหมด dialog: ปิดหน้าต่าง
                 Window w = SwingUtilities.getWindowAncestor(this);
                 if (w instanceof JDialog) ((JDialog) w).dispose();
                 gamePanel.requestFocusInWindow();

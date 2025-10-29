@@ -7,10 +7,7 @@ import java.util.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-/**
- * โหลดสไปรต์ชีต NPC แบบกริด (ปกติ 64x64) และเล่นอนิเมชันตาม mapping ใน json
- * ถ้าไม่มี mapping จะใช้ default: แถว 0..3 = DOWN/LEFT/RIGHT/UP, เดิน 6-8 เฟรม
- */
+
 public class NPCSpriteSheet {
 
     public enum Action {
@@ -188,9 +185,7 @@ public class NPCSpriteSheet {
         return out;
     }
 
-    /**
-     * JSON parser เล็กๆ พอรองรับ object/array/number/string/bool/null
-     */
+
     static class SimpleJson {
         private final String s; private int i=0;
         private SimpleJson(String s){ this.s=s; }

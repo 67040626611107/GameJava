@@ -1,10 +1,7 @@
 import java.util.Collections;
 import java.util.Map;
 
-/**
- * CharacterStats - เก็บ stats ของตัวละคร (เช่น luck) สำหรับใช้ใน preview / fishing logic.
- * - ฟิลด์/เมธอดเรียบง่ายเพื่อให้ UI/ส่วนอื่นใน repo สามารถเรียกได้ทันที
- */
+
 public class CharacterStats {
     private final String characterId;
     private final String displayName;

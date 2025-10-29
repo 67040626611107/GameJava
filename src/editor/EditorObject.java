@@ -10,8 +10,7 @@ public class EditorObject {
     public int w;
     public int h;
     public boolean collides = true;
-    // คอลลิชันภายในกรอบ (โลคัลจากซ้ายบนของรูป)
-    public Rectangle coll; // อาจเป็น null = auto bottom 20%
+    public Rectangle coll; 
 
     public int footY() {
         return y + h;

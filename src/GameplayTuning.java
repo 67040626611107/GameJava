@@ -19,7 +19,7 @@ public final class GameplayTuning {
             this.width = width;
             this.height = height;
             this.centerWater = centerWater;
-            this.waterRadius = waterRadius;
+            this.waterRadius = 6;
             this.groundTile = groundTile;
             this.waterTile = waterTile;
         }
@@ -33,7 +33,7 @@ public final class GameplayTuning {
         public final int biteTimeBaseMs;
         public final int biteTimeVarianceMs;
         public final double reelBarScale;
-        public final MapSpec map; // เพิ่มข้อมูลแผนที่
+        public final MapSpec map; 
 
         public WorldParams(int id, String name,
                            double reelProgressRate,
@@ -57,7 +57,7 @@ public final class GameplayTuning {
         public final String id;
         public final String displayName;
         public final int basePrice;
-        public final String imagePath; // may be null
+        public final String imagePath; 
         public final double reelRateMul;
         public final double wiggleMul;
         public final double biteSpeedMul;
@@ -300,7 +300,7 @@ public final class GameplayTuning {
                 int w = readInt(mapObj, "width", 32);
                 int h = readInt(mapObj, "height", 18);
                 boolean centerWater = "true".equalsIgnoreCase(readString(mapObj, "centerWater", "false"));
-                int waterRadius = readInt(mapObj, "waterRadius", 6);
+                int waterRadius = readInt(mapObj, "waterRadius", 10);
                 String groundTile = readString(mapObj, "groundTile", "GROUND");
                 String waterTile = readString(mapObj, "waterTile", "WATER");
                 map = new MapSpec(w, h, centerWater, waterRadius, groundTile, waterTile);

@@ -15,10 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Arrays;
 
-/**
- * MapBackground v3.2
- * - รองรับ map.json และแมปพาธแบบ "src/..." -> ไปยัง manifestRoot อัตโนมัติ
- */
+
 public class MapBackground {
 
     private final int width;
@@ -69,11 +66,9 @@ public class MapBackground {
     public CollisionWorld getCollisionWorld() { return collisionWorld; }
     public int getWaterTopY() { return waterTopY; }
 
-    // ขนาดโลก (พิกเซล)
     public int getWorldWidth() { return width; }
     public int getWorldHeight() { return height; }
 
-    // ---------- manifest ----------
     private void loadManifest(String manifestPath) {
         try {
             File f = resolveFile(manifestPath);
@@ -107,27 +102,22 @@ public class MapBackground {
         return f.exists() ? f : null;
     }
 
-    // รองรับหลายรูปแบบ path ทั้ง absolute, project-relative, manifest-relative และพาธเก่า "src/..."
     private File resolveAsset(String rel) {
         if (rel == null || rel.isEmpty()) return null;
 
-        // 1) path ตรงๆ
         File f = new File(rel);
         if (f.exists()) return f;
 
-        // 2) ใต้ manifest root (กรณี rel เป็น manifest-relative เช่น "Buildings/...")
         if (!manifestRoot.isEmpty()) {
             f = new File(manifestRoot, rel);
             if (f.exists()) return f;
         }
 
-        // 3) ใต้ src/
         f = new File("src/" + rel);
         if (f.exists()) return f;
 
-        // 4) รองรับไฟล์เก่าที่เขียนเป็น "src/Buildings/..." => map ไปใต้ manifestRoot
         if (rel.startsWith("src/")) {
-            String tail = rel.substring(4); // ตัด "src/"
+            String tail = rel.substring(4); 
             if (!manifestRoot.isEmpty()) {
                 File alt = new File(manifestRoot, tail);
                 if (alt.exists()) {
@@ -142,7 +132,6 @@ public class MapBackground {
             }
         }
 
-        // 5) เผื่อกรณีผู้ใช้เก็บครบ root อยู่แล้ว: ลองต่อหน้า "src/assets/Cute_Fantasy" กับ rel ปกติ
         File alt3 = new File("src/assets/Cute_Fantasy/" + rel);
         if (alt3.exists()) return alt3;
 
@@ -157,7 +146,6 @@ public class MapBackground {
         return null;
     }
 
-    // ---------- map.json loader ----------
     private boolean loadFromMapJsonCandidates() {
         for (String cand : MAP_CANDIDATES) {
             System.out.println("🔎 MapBackground: looking for map.json at: " + cand);
@@ -207,7 +195,6 @@ public class MapBackground {
         }
     }
 
-    // ---------- base ground ----------
     private void pickBaseTiles() {
         String g = firstExisting(java.util.Arrays.asList(
                 "Tiles/Grass/Grass_1_Middle.png",
@@ -242,12 +229,9 @@ public class MapBackground {
 
             this.waterTopY = waterTopYInput;
 
-            // Grass
             fillTiled(g, grassTile, 0, 0, width, height, new Color(34, 139, 34));
-            // Water
             fillTiled(g, waterTile, 0, waterTopY, width, height - waterTopY, new Color(70, 180, 220));
 
-            // Shore
             int shoreH = Math.max(28, tileSize / 2);
             int shoreY = waterTopY - shoreH;
             g.setColor(new Color(210,180,120));

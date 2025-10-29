@@ -1,11 +1,7 @@
 import java.util.Random;
 import java.util.function.Consumer;
 
-/**
- * FishingManager - ควบคุม logic การตกปลา (แก้ให้ตัวแปรที่ใช้ใน thread เป็น final)
- *
- * NOTE: โค้ดนี้ออกแบบให้ทำงานกับ FishInfo (หรือโครงข้อมูลปลาอื่น ๆ ใน repo)
- */
+
 public class FishingManager {
     private final WorldConfigLoader.World2Config.FishingSettings settings;
     private final Random rnd = new Random();
@@ -22,40 +18,26 @@ public class FishingManager {
             this.fish = fish;
         }
     }
-
-    /**
-     * เริ่ม session การตกปลา (ทำงานใน background thread)
-     *
-     * @param fish ปลาที่ตก
-     * @param stats ตัวละคร
-     * @param onProgressUpdate รับ percent (0..1)
-     * @param onBite Runnable เรียกเมื่อปลา "กัด"
-     * @param onEnd รับ FishingResult
-     */
     public void startFishingSession(FishInfo fish,
                                     CharacterStats stats,
                                     Consumer<Double> onProgressUpdate,
                                     Runnable onBite,
                                     Consumer<FishingResult> onEnd) {
-        // compute values once and keep them effectively-final for use inside thread
         final double baseProgress = settings != null ? settings.baseProgressSpeed : 0.6;
         final double difficultyModifier = settings != null && settings.progressSpeedModifierByDifficulty != null
                 ? settings.progressSpeedModifierByDifficulty.getOrDefault(fish.difficulty, 1.0)
                 : 1.0;
-        // luck reduces difficulty: higher luck => faster progress
-        final double luckModifier = 1.0 + (stats.getLuck() * 0.02); // tunable: 2% per luck point
+        final double luckModifier = 1.0 + (stats.getLuck() * 0.02); 
         final double effectiveSpeed = baseProgress * difficultyModifier * luckModifier;
 
         final double struggleStrength = fish.struggleStrength;
         final double biteMultiplier = settings != null && settings.biteSpeedMultiplier != null
                 ? settings.biteSpeedMultiplier.getOrDefault(fish.difficulty, 1.0)
                 : 1.0;
-        // compute bite time and make it final (fixes "must be final or effectively final")
         final double biteTime = Math.max(0.5, (fish.biteTimeSeconds / biteMultiplier) - stats.getLuck() * 0.05);
 
         new Thread(() -> {
             try {
-                // รอให้กัด
                 Thread.sleep((long)(biteTime * 1000));
                 if (onBite != null) onBite.run();
 

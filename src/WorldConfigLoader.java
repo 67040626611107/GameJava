@@ -4,13 +4,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * WorldConfigLoader - อ่าน config/world2.json แบบง่ายโดยไม่พึ่ง Gson
- *
- * ข้อสังเกต:
- * - โค้ดนี้เป็น parser แบบย่อสำหรับโครง JSON ที่เราคาดว่าไฟล์ world2.json จะมี (baseProgressSpeed, maps, fish array ฯลฯ)
- * - หากต้องการ parsing ที่สมบูรณ์และปลอดภัยกว่า ให้เพิ่ม Gson ลงใน classpath และเขียน loader ด้วย Gson (ปลดคอมเมนต์/เปลี่ยนตามต้องการ)
- */
 public class WorldConfigLoader {
 
     public static World2Config loadWorld2Config() throws IOException {
@@ -31,7 +24,6 @@ public class WorldConfigLoader {
         cfg.worldId = extractString(json, "\"worldId\"\\s*:\\s*\"([^\"]*)\"");
         cfg.displayName = extractString(json, "\"displayName\"\\s*:\\s*\"([^\"]*)\"");
 
-        // spawnRules.waterTileTypes (as list)
         String waterArray = extractArrayBlock(json, "\"waterTileTypes\"\\s*:\\s*\\[", "]");
         if (waterArray != null) {
             List<String> items = extractStringList(waterArray);
@@ -43,7 +35,6 @@ public class WorldConfigLoader {
         }
         cfg.spawnRules.fishSpawnRate = extractDouble(json, "\"fishSpawnRate\"\\s*:\\s*([0-9\\.]+)", 0.6);
 
-        // fishing settings
         cfg.fishing = new World2Config.FishingSettings();
         cfg.fishing.baseProgressSpeed = extractDouble(json, "\"baseProgressSpeed\"\\s*:\\s*([0-9\\.]+)", 0.6);
         cfg.fishing.barScaleMultiplier = extractDouble(json, "\"barScaleMultiplier\"\\s*:\\s*([0-9\\.]+)", 1.0);
@@ -51,7 +42,6 @@ public class WorldConfigLoader {
         cfg.fishing.progressSpeedModifierByDifficulty = extractDoubleMap(json, "\"progressSpeedModifierByDifficulty\"\\s*:\\s*\\{");
         cfg.fishing.biteSpeedMultiplier = extractDoubleMap(json, "\"biteSpeedMultiplier\"\\s*:\\s*\\{");
 
-        // fish array: grab block between "fish": [ ... ]
         String fishArrayBlock = extractArrayBlock(json, "\"fish\"\\s*:\\s*\\[", "]");
         if (fishArrayBlock != null) {
             List<String> fishObjects = splitObjects(fishArrayBlock);
@@ -75,9 +65,7 @@ public class WorldConfigLoader {
         return cfg;
     }
 
-    // --- helpers: very small parsing utilities (regex-like using indexOf)
     private static String extractString(String text, String pattern) {
-        // simple implementation using regex
         try {
             java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
             java.util.regex.Matcher m = p.matcher(text);
@@ -148,7 +136,6 @@ public class WorldConfigLoader {
                 }
                 int end = i;
                 String block = text.substring(start, end);
-                // find "key": value pairs
                 java.util.regex.Pattern pair = java.util.regex.Pattern.compile("\"([^\"]+)\"\\s*:\\s*([0-9\\.]+)");
                 java.util.regex.Matcher mm = pair.matcher(block);
                 while (mm.find()) {
@@ -163,7 +150,6 @@ public class WorldConfigLoader {
         List<String> objs = new ArrayList<>();
         int i = 0;
         while (i < arrayBlock.length()) {
-            // find next '{'
             int s = arrayBlock.indexOf('{', i);
             if (s < 0) break;
             int depth = 0;
@@ -185,7 +171,6 @@ public class WorldConfigLoader {
         return objs;
     }
 
-    // --- Data classes
     public static class World2Config {
         public String worldId;
         public String displayName;

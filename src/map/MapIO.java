@@ -4,9 +4,7 @@ import util.Json;
 
 import java.util.*;
 
-/**
- * โหลด/บันทึก MapData เป็น JSON
- */
+
 public final class MapIO {
     private MapIO(){}
 

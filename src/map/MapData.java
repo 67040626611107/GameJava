@@ -4,9 +4,7 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * โครงสร้างข้อมูลแผนที่สำหรับเซฟ/โหลดเป็น JSON
- */
+
 public class MapData {
     public int width;
     public int height;

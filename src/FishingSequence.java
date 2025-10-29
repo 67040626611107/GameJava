@@ -2,8 +2,8 @@ public class FishingSequence {
     public FishingPhase phase;
     public boolean reelingFinished = false;
     public boolean success = false;
-    public int castMaxTime;         // ms ทั้งหมด
-    public int castTimeRemaining;   // ms เหลือ
+    public int castMaxTime;          
+    public int castTimeRemaining;   
     public final Fish caughtFish;
 
     private static final int TICK_MS = 50;
@@ -15,7 +15,6 @@ public class FishingSequence {
         this.phase = FishingPhase.CASTING;
     }
 
-    // legacy ctor (fallback)
     public FishingSequence(Fish fish) {
         this(fish, 2000);
     }

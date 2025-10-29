@@ -5,9 +5,8 @@ public class Fish {
     public final String name;
     public final int price;
     public final boolean golden;
-    public final String imagePath;   // ทางรูป (อาจเป็น null)
+    public final String imagePath;    
 
-    // ค่าความยากรายปลา (คูณกับ world)
     public final double reelRateMul;
     public final double wiggleMul;
     public final double biteSpeedMul;
@@ -32,7 +31,6 @@ public class Fish {
         this.biteSpeedMul = biteSpeedMul;
     }
 
-    // fallback: random fish แบบเดิม (ถ้าไม่มี config)
     private static Fish fallbackRandom() {
         int i = RND.nextInt(NAMES.length);
         String n = NAMES[i];
@@ -47,9 +45,7 @@ public class Fish {
     }
 
     public static Fish getRandomFish() {
-        // ใช้ config ถ้ามี
         try {
-            // ensure loaded
             GameplayTuning.loadAll();
             java.util.Collection<GameplayTuning.FishParams> list = GameplayTuning.fishes();
             if (list != null && !list.isEmpty()) {

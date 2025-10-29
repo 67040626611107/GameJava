@@ -4,9 +4,7 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * ตัวจัดการกล่องชนทั้งหมดในแผนที่
- */
+
 public class CollisionWorld {
     private final List<Rectangle> solids = new ArrayList<>();
 

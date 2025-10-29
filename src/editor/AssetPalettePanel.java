@@ -13,9 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * แสดงรายการรูป “เดี่ยว” จาก manifest และพรีวิว (คัดขนาด <=256x256)
- */
+
 public class AssetPalettePanel extends JPanel {
     private final String manifestRoot;
     private final java.util.List<String> assetPaths = new ArrayList<>();
@@ -52,7 +50,7 @@ public class AssetPalettePanel extends JPanel {
         updatePreview();
     }
 
-    public String getSelectedAssetPath() { return selectedPath; } // manifest-relative
+    public String getSelectedAssetPath() { return selectedPath; } 
     public BufferedImage getSelectedImage() { return selectedImage; }
     public void refreshSelected() { updatePreview(); }
     public String getManifestRoot() { return manifestRoot; }

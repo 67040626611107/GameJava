@@ -12,21 +12,12 @@ import java.io.File;
 import java.util.*;
 import java.util.List;
 
-/**
- * แคนวาสวางออบเจ็กต์แบบ snap-to-grid + กล้องแพนได้ + ปรับ snap ได้
- * เพิ่ม:
- * - Hover preview ของ asset ที่เลือก (แสดง sprite ถ้ามี ไม่งั้นโชว์ ghost)
- * - วาง/ลบ object ลงใน MapData.objects
- * - วาด objects + depth-sort ตามแนวเท้า
- * - Overlay น้ำตรงกลาง (centerWaterPreview) สำหรับ World 2
- * - ปรับสแนปด้วยปุ่ม [+/-] ทีละ 1 พิกเซล และ [ / ] (หารสอง/คูณสอง)
- */
+
 public class CanvasPanel extends JPanel implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {
     private final AssetPalettePanel palette;
     private MapData data;
     private boolean showGrid = true;
 
-    // mouse/camera
     private int lastMouseX = 0, lastMouseY = 0;
     private int camX = 0, camY = 0;
 
@@ -210,7 +201,6 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
         int py = place.y - camY;
 
         if (sel.img != null) {
-            // semi-transparent sprite preview
             Composite old = g.getComposite();
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.65f));
             g.drawImage(sel.img, px, py, null);
@@ -218,7 +208,6 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
             g.setColor(new Color(255,255,255,120));
             g.drawRect(px, py, sel.img.getWidth(), sel.img.getHeight());
         } else {
-            // ghost box if no sprite selected
             int sz = Math.max(placementSnap, 32);
             g.setColor(new Color(255,255,255,40));
             g.fillRect(px, py, sz, sz);
@@ -230,7 +219,7 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
     private record SelectedSprite(String src, BufferedImage img) {}
 
     private SelectedSprite getSelectedSprite() {
-        String src = palette.getSelectedAssetPath();   // manifest-relative path
+        String src = palette.getSelectedAssetPath();  
         BufferedImage img = palette.getSelectedImage();
         if (src == null && img == null) return new SelectedSprite(null, null);
         if (img == null && src != null) img = loadImageFor(src);
@@ -243,7 +232,7 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
 
         int snap = placementSnap;
         if (ctrlDown) snap = Math.max(MIN_SNAP, placementSnap / 2);
-        if (altDown) snap = 1; // free place
+        if (altDown) snap = 1;  
 
         int px = (snap <= 1) ? worldX : (worldX / snap) * snap;
         int py = (snap <= 1) ? worldY : (worldY / snap) * snap;
@@ -255,7 +244,6 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
         if (path == null || path.isEmpty()) return null;
         try {
             if (imageCache.containsKey(path)) return imageCache.get(path);
-            // ลองโหลดจาก root ใน manifest ก่อน แล้วค่อย src/
             File f0 = new File(palette.getManifestRoot(), path);
             File f1 = new File("src/" + path);
             File f2 = new File(path);
@@ -286,12 +274,10 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
             return;
         }
 
-        // world coordinates
         lastMouseX = e.getX();
         lastMouseY = e.getY();
 
         if (SwingUtilities.isLeftMouseButton(e)) {
-            // place object
             SelectedSprite sel = getSelectedSprite();
             if (sel.src == null && sel.img == null) return;
             Point p = computePlacementXY(sel);
@@ -300,14 +286,13 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
             o.src = sel.src != null ? sel.src : "placeholder";
             o.x = p.x;
             o.y = p.y;
-            o.collide = !shiftDown; // hold Shift to make non-collide
+            o.collide = !shiftDown; 
             o.footH = 16;
             o.layer = 0;
 
-            data.objects.add(o); // mutate final list (OK)
+            data.objects.add(o); 
             repaint();
         } else if (SwingUtilities.isRightMouseButton(e)) {
-            // delete nearest object within small radius
             if (data != null && data.objects != null && !data.objects.isEmpty()) {
                 int worldX = e.getX() + camX, worldY = e.getY() + camY;
                 MapData.MapObject best = null;
@@ -357,7 +342,6 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
     }
 
     @Override public void keyTyped(KeyEvent e) {
-        // รองรับกด Shift+'=' เป็น '+'
         char c = e.getKeyChar();
         if (c == '+') {
             placementSnap = Math.min(MAX_SNAP, placementSnap + 1);
@@ -373,10 +357,8 @@ public class CanvasPanel extends JPanel implements MouseListener, MouseMotionLis
             case KeyEvent.VK_G -> toggleGrid();
             case KeyEvent.VK_OPEN_BRACKET -> { placementSnap = Math.max(MIN_SNAP, placementSnap / 2); repaint(); }
             case KeyEvent.VK_CLOSE_BRACKET -> { placementSnap = Math.min(MAX_SNAP, placementSnap * 2); repaint(); }
-            // Numpad +/-
             case KeyEvent.VK_ADD -> { placementSnap = Math.min(MAX_SNAP, placementSnap + 1); repaint(); }
             case KeyEvent.VK_SUBTRACT -> { placementSnap = Math.max(MIN_SNAP, placementSnap - 1); repaint(); }
-            // บางคีย์บอร์ดส่ง VK_EQUALS เมื่อกด Shift+'=' (เราดักใน keyTyped อยู่แล้ว)
             case KeyEvent.VK_ALT -> altDown = true;
             case KeyEvent.VK_CONTROL -> ctrlDown = true;
             case KeyEvent.VK_SHIFT -> shiftDown = true;

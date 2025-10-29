@@ -4,14 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
-/**
- * FishInfo - model ข้อมูลปลา สำหรับใช้กับ FishingManager / ShopManager / UI preview.
- * - ไม่ชนกับ src/Fish.java ที่มีอยู่ (นั้นเป็นโครงเรียบง่ายของปลาใน repo เดิม)
- * - ฟิลด์เป็น public เพื่อให้เข้ากับสไตล์โค้ดใน repo นี้
- *
- * รูปที่โหลดคาดว่าจะอยู่ใน project path เช่น "src/assets/images/..." หรือ "assets/..."
- * ถ้าไม่พบไฟล์รูป จะพยายามโหลด "src/assets/images/no_preview.png"
- */
 public class FishInfo {
     public final String id;
     public final String name;
@@ -39,10 +31,7 @@ public class FishInfo {
         this.imagePath = imagePath;
     }
 
-    /**
-     * Convenience factory to create from WorldConfigLoader.World2Config.FishEntry if you use the loader.
-     * (Avoids coupling if you don't use WorldConfigLoader.)
-     */
+
     public static FishInfo fromConfigEntry(WorldConfigLoader.World2Config.FishEntry e) {
         if (e == null) return null;
         // map config image path (config may reference assets/...). Keep as-is.
@@ -57,9 +46,6 @@ public class FishInfo {
         );
     }
 
-    /**
-     * Load image lazily. Returns null if no image could be loaded.
-     */
     public synchronized Image getImage() {
         if (image == null) loadImageOrPlaceholder();
         return image;

@@ -2,9 +2,7 @@ package util;
 
 import java.util.*;
 
-/**
- * Minimal JSON parse/stringify (object/array/string/number/bool/null)
- */
+
 public final class Json {
 
     private Json(){}
