@@ -13,7 +13,7 @@ public class FishInfo {
     public final int price;
     public final String imagePath; // relative filesystem path, e.g. "src/assets/images/fish/x.png"
 
-    private Image image; // cached runtime image (nullable)
+    private Image image; 
 
     public FishInfo(String id,
                     String name,
@@ -34,7 +34,6 @@ public class FishInfo {
 
     public static FishInfo fromConfigEntry(WorldConfigLoader.World2Config.FishEntry e) {
         if (e == null) return null;
-        // map config image path (config may reference assets/...). Keep as-is.
         return new FishInfo(
                 e.id != null ? e.id : "",
                 e.name != null ? e.name : "Unknown",
@@ -57,10 +56,8 @@ public class FishInfo {
             img = loadFromPath(imagePath);
         }
         if (img == null) {
-            // fallback placeholder path expected in repo
             img = loadFromPath("src/assets/images/no_preview.png");
             if (img == null) {
-                // another common asset location
                 img = loadFromPath("assets/images/no_preview.png");
             }
         }

@@ -49,7 +49,6 @@ public final class Json {
             sb.append(']');
             return;
         }
-        // fallback as string
         sb.append('"').append(escape(String.valueOf(v))).append('"');
     }
 

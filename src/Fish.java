@@ -12,7 +12,6 @@ public class Fish {
     public final double biteSpeedMul;
 
     private static final String[] NAMES = {
-        "Carp", "Trout", "Salmon", "Catfish", "Bass", "Tuna"
     };
     private static final int[] PRICES = {
         10, 15, 25, 20, 18, 30

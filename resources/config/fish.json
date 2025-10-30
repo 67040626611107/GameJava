@@ -4,10 +4,10 @@
       "id": "common_carp",
       "displayName": "Common Carp",
       "basePrice": 20,
-      "imagePath": "ssets/fish/common crap.png",
+      "imagePath": "assets/fish/common crap.png",
       "difficulty": {
         "reelRateMul": 1.0,
-        "wiggleMul": 1.0,
+        "wiggleMul": 0.5,
         "biteSpeedMul": 1.0
       }
     },
@@ -18,7 +18,7 @@
       "imagePath": "assets/fish/electric_eel.png",
       "difficulty": {
         "reelRateMul": 0.8,
-        "wiggleMul": 1.4,
+        "wiggleMul": 0.5,
         "biteSpeedMul": 1.2
       }
     },{
@@ -29,7 +29,7 @@
       "imagePath": "assets/fish/Duck Pro.png",
       "difficulty": {
         "reelRateMul": 0.8,
-        "wiggleMul": 5.4,
+        "wiggleMul": 0.5,
         "biteSpeedMul": 1.2
       }
     }

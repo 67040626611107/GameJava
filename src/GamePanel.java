@@ -47,16 +47,12 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private final java.util.List<World2Obj> world2Objects = new java.util.ArrayList<>();
     private final java.util.Map<String, BufferedImage> world2ImageCache = new java.util.HashMap<>();
 
-    // Reel
     private ReelMinigame reelMinigame;
 
-    // Quests
     private final QuestManager questManager = new QuestManager();
 
-    // Waves
     private BufferedImage waveTile;
 
-    // กันขอบน้ำ
     private static final int FOOT_MARGIN = 6;
 
     private static final int HUD_W = 860;
@@ -66,16 +62,12 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
     private static final int HUD_ALPHA = 140;
     private static final int HUD_BORDER_ALPHA = 190;
 
-    // World difficulty
     private int currentWorldId = 1;
 
-    // Image cache for fish preview
     private final java.util.Map<String, BufferedImage> fishImageCache = new java.util.HashMap<>();
 
-    // UI scale สำหรับความสูงของหลอด REEL
     private double reelBarScaleUI = 1.0;
 
-    // Rod shop / equipment
     private final java.util.LinkedHashMap<Integer, String> rodIndexToId = new java.util.LinkedHashMap<>();
     private final java.util.Set<String> ownedRods = new java.util.HashSet<>();
     private String currentRodId = "starter_rod";
@@ -576,7 +568,6 @@ public class GamePanel extends JPanel implements KeyListener, MouseMotionListene
             g2d.drawString("ยังไม่มีปลา", 100, 150);
         }
 
-        // Rod shop panel
         drawRodShop(g2d);
 
         g2d.drawString("กด S เพื่อขายทั้งหมด | กดเลข 1-9 เพื่อ ซื้อ/ใส่ คันเบ็ด", WIDTH / 2 - 240, HEIGHT - 80);
